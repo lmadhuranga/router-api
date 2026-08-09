@@ -5,35 +5,31 @@ const REFRESH_INTERVAL = 5000;
 // ELEMENTS
 // ============================================================
 
-const downloadKB =
-  document.getElementById(
-    "downloadKB"
-  );
-
-const downloadMbps =
-  document.getElementById(
-    "downloadMbps"
-  );
-
-const uploadKB =
-  document.getElementById(
-    "uploadKB"
-  );
-
-const uploadMbps =
-  document.getElementById(
-    "uploadMbps"
-  );
+const speedTitle =
+  document.getElementById("speedTitle");
 
 const status =
-  document.getElementById(
-    "status"
-  );
+  document.getElementById("status");
 
 const titleFormat =
-  document.getElementById(
-    "titleFormat"
-  );
+  document.getElementById("titleFormat");
+
+const refreshButton =
+  document.getElementById("refreshButton");
+
+
+// ============================================================
+// DATA
+// ============================================================
+
+let latestSpeed = {
+  downloadKB: 0,
+  uploadKB: 0
+};
+
+let latestRouter = {
+  rssi: "--"
+};
 
 
 // ============================================================
@@ -41,341 +37,182 @@ const titleFormat =
 // ============================================================
 
 let selectedTitleFormat =
-  localStorage.getItem(
-    "titleFormat"
-  ) || "KB";
+  localStorage.getItem("titleFormat") || "KB";
 
-
-titleFormat.value =
-  selectedTitleFormat;
-
-
-titleFormat.addEventListener(
-  "change",
-  () => {
-
-    selectedTitleFormat =
-      titleFormat.value;
-
-
-    localStorage.setItem(
-      "titleFormat",
-      selectedTitleFormat
-    );
-
-
-    updateTitle();
-  }
-);
-
-
-// ============================================================
-// DATA
-// ============================================================
-
-let latestSpeed = null;
-
-let latestRouter = null;
-
-
-// ============================================================
-// SAFE VALUE
-// ============================================================
-
-function value(
-  item,
-  fallback = "--"
-) {
-
-  if (
-    item === undefined ||
-    item === null ||
-    item === ""
-  ) {
-
-    return fallback;
-  }
-
-
-  return item;
+if (titleFormat) {
+  titleFormat.value =
+    selectedTitleFormat;
 }
 
 
 // ============================================================
-// TITLE
+// CREATE TITLE
 // ============================================================
 
-function updateTitle() {
-
-  if (
-    !latestSpeed ||
-    !latestRouter
-  ) {
-
-    return;
-  }
-
+function createSpeedTitle() {
 
   const upload =
     Math.floor(
       Number(
         latestSpeed.uploadKB
-      )
-    ) || 0;
-
+      ) || 0
+    );
 
   const download =
     Math.floor(
       Number(
         latestSpeed.downloadKB
-      )
-    ) || 0;
-
+      ) || 0
+    );
 
   const rssiNumber =
     Number(
       latestRouter.rssi
     );
 
-
   const rssi =
     Number.isFinite(rssiNumber)
       ? Math.abs(
-          Math.round(
-            rssiNumber
-          )
+          Math.round(rssiNumber)
         )
       : "--";
 
 
   if (
-    selectedTitleFormat ===
-    "KB"
+    selectedTitleFormat === "KB/s"
   ) {
 
-    document.title =
-      `↑ ${upload} KB | ↓ ${download} KB | ${rssi} dBm`;
-
-  } else if (
-    selectedTitleFormat ===
-    "KB/s"
-  ) {
-
-    document.title =
-      `↑ ${upload} KB/s | ↓ ${download} KB/s | ${rssi} dBm`;
-
-  } else {
-
-    document.title =
-      `↑ ${upload} | ↓ ${download} | ${rssi} dBm`;
+    return (
+      `↑ ${upload} KB/s | ` +
+      `↓ ${download} KB/s | ` +
+      `${rssi} dBm`
+    );
   }
+
+
+  if (
+    selectedTitleFormat === "plain"
+  ) {
+
+    return (
+      `↑ ${upload} | ` +
+      `↓ ${download} | ` +
+      `${rssi} dBm`
+    );
+  }
+
+
+  // Default
+
+  return (
+    `↑ ${upload} KB | ` +
+    `↓ ${download} KB | ` +
+    `${rssi} dBm`
+  );
 }
 
 
 // ============================================================
-// UPDATE POPUP
+// UPDATE TITLE
 // ============================================================
 
-function updatePopup(data) {
+function updateTitle() {
+
+  const title =
+    createSpeedTitle();
+
+
+  if (speedTitle) {
+    speedTitle.textContent =
+      title;
+  }
+
+
+  // Popup document title
+  document.title =
+    title;
+}
+
+
+// ============================================================
+// UPDATE FROM BACKGROUND
+// ============================================================
+
+function updateFromBackground(
+  data
+) {
 
   if (!data) {
-
-    status.textContent =
-      "Waiting for router data...";
-
     return;
   }
 
 
-  latestSpeed =
-    data.speed || {
-
-      downloadKB: 0,
-
-      downloadMbps: 0,
-
-      uploadKB: 0,
-
-      uploadMbps: 0
-    };
-
-
-  latestRouter =
-    data.router || {};
-
-
-  // ==========================================================
+  // ----------------------------------------------------------
   // SPEED
-  // ==========================================================
+  // ----------------------------------------------------------
 
-  downloadKB.textContent =
-    Number(
-      latestSpeed.downloadKB
-    ).toFixed(2) +
-    " KB/s";
+  if (data.speed) {
 
-
-  downloadMbps.textContent =
-    Number(
-      latestSpeed.downloadMbps
-    ).toFixed(2);
-
-
-  uploadKB.textContent =
-    Number(
-      latestSpeed.uploadKB
-    ).toFixed(2) +
-    " KB/s";
-
-
-  uploadMbps.textContent =
-    Number(
-      latestSpeed.uploadMbps
-    ).toFixed(2);
-
-
-  // ==========================================================
-  // STATUS
-  // ==========================================================
-
-  if (
-    data.status ===
-    "connected"
-  ) {
-
-    status.textContent =
-      "● Connected";
-
-  } else if (
-    data.status ===
-    "authenticating"
-  ) {
-
-    status.textContent =
-      `Authenticating ${data.authAttempt}/${data.maxAuthRetries}`;
-
-  } else if (
-    data.status ===
-    "authentication_failed"
-  ) {
-
-    status.textContent =
-      "Authentication failed";
-
-  } else {
-
-    status.textContent =
-      "Router offline";
+    latestSpeed =
+      data.speed;
   }
 
 
-  // ==========================================================
+  // ----------------------------------------------------------
   // ROUTER
-  // ==========================================================
+  // ----------------------------------------------------------
 
-  document.getElementById(
-    "rssi"
-  ).textContent =
-    value(
-      latestRouter.rssi
-    ) +
-    " dBm";
+  if (data.router) {
+
+    latestRouter =
+      data.router;
+  }
 
 
-  document.getElementById(
-    "connectStatus"
-  ).textContent =
-    value(
-      latestRouter.connectStatus
-    );
+  // ----------------------------------------------------------
+  // STATUS
+  // ----------------------------------------------------------
 
+  if (data.status) {
 
-  document.getElementById(
-    "wanIP"
-  ).textContent =
-    value(
-      latestRouter.wanIP
-    );
+    if (
+      data.status ===
+      "connected"
+    ) {
 
+      status.textContent =
+        "● Connected";
 
-  document.getElementById(
-    "wanGateway"
-  ).textContent =
-    value(
-      latestRouter.wanGateway
-    );
+    } else if (
+      data.status ===
+      "authenticating"
+    ) {
 
+      status.textContent =
+        "Authenticating...";
 
-  document.getElementById(
-    "wanDNS"
-  ).textContent =
-    value(
-      latestRouter.wanDNS
-    );
+    } else if (
+      data.status ===
+      "authentication_failed"
+    ) {
 
+      status.textContent =
+        "Authentication failed";
 
-  document.getElementById(
-    "wanDNS2"
-  ).textContent =
-    value(
-      latestRouter.wanDNS2
-    );
+    } else if (
+      data.status ===
+      "offline"
+    ) {
 
+      status.textContent =
+        "● Router offline";
 
-  document.getElementById(
-    "imei"
-  ).textContent =
-    value(
-      latestRouter.imei
-    );
+    } else {
 
-
-  document.getElementById(
-    "plmn"
-  ).textContent =
-    value(
-      latestRouter.plmn
-    );
-
-
-  document.getElementById(
-    "lanIP"
-  ).textContent =
-    value(
-      latestRouter.lanIP
-    );
-
-
-  document.getElementById(
-    "dhcpServer"
-  ).textContent =
-    value(
-      latestRouter.dhcpServer
-    );
-
-
-  document.getElementById(
-    "rxPackets"
-  ).textContent =
-    Number(
-      latestRouter.wanRxPackets || 0
-    ).toLocaleString();
-
-
-  document.getElementById(
-    "txPackets"
-  ).textContent =
-    Number(
-      latestRouter.wanTxPackets || 0
-    ).toLocaleString();
-
-
-  document.getElementById(
-    "uptime"
-  ).textContent =
-    value(
-      latestRouter.uptime
-    );
+      status.textContent =
+        data.status;
+    }
+  }
 
 
   updateTitle();
@@ -391,8 +228,7 @@ function getStatus() {
   chrome.runtime.sendMessage(
 
     {
-      type:
-        "getStatus"
+      type: "getStatus"
     },
 
     response => {
@@ -401,71 +237,173 @@ function getStatus() {
         chrome.runtime.lastError
       ) {
 
-        status.textContent =
-          "Extension service unavailable";
-
-        console.error(
-          chrome.runtime.lastError
+        console.log(
+          "getStatus:",
+          chrome.runtime.lastError.message
         );
+
+        status.textContent =
+          "Waiting for router...";
 
         return;
       }
 
 
-      updatePopup(
-        response
-      );
+      if (response) {
+
+        updateFromBackground(
+          response
+        );
+
+      } else {
+
+        status.textContent =
+          "Waiting for router...";
+      }
     }
   );
 }
 
 
 // ============================================================
-// INITIAL DATA
+// FORCE REFRESH
+// ============================================================
+
+function forceRefresh() {
+
+  if (!refreshButton) {
+    return;
+  }
+
+
+  refreshButton.classList.add(
+    "loading"
+  );
+
+  refreshButton.disabled =
+    true;
+
+
+  status.textContent =
+    "Refreshing router...";
+
+
+  chrome.runtime.sendMessage(
+
+    {
+      type: "forceRefresh"
+    },
+
+    response => {
+
+      refreshButton.classList.remove(
+        "loading"
+      );
+
+      refreshButton.disabled =
+        false;
+
+
+      if (
+        chrome.runtime.lastError
+      ) {
+
+        console.log(
+          "forceRefresh:",
+          chrome.runtime.lastError.message
+        );
+
+        status.textContent =
+          "Waiting for router...";
+
+        // Get whatever data the background
+        // already has.
+        getStatus();
+
+        return;
+      }
+
+
+      if (response) {
+
+        updateFromBackground(
+          response
+        );
+
+      } else {
+
+        // Important:
+        // Don't leave the popup stuck on
+        // "Refreshing router..."
+
+        status.textContent =
+          "Waiting for router...";
+
+        getStatus();
+      }
+    }
+  );
+}
+
+
+// ============================================================
+// TITLE FORMAT CHANGE
+// ============================================================
+
+if (titleFormat) {
+
+  titleFormat.addEventListener(
+    "change",
+    () => {
+
+      selectedTitleFormat =
+        titleFormat.value;
+
+
+      localStorage.setItem(
+        "titleFormat",
+        selectedTitleFormat
+      );
+
+
+      updateTitle();
+    }
+  );
+}
+
+
+// ============================================================
+// REFRESH BUTTON
+// ============================================================
+
+if (refreshButton) {
+
+  refreshButton.addEventListener(
+    "click",
+    forceRefresh
+  );
+}
+
+
+// ============================================================
+// INITIAL STATE
+// ============================================================
+
+updateTitle();
+
+
+// ============================================================
+// LOAD CURRENT DATA
 // ============================================================
 
 getStatus();
 
 
 // ============================================================
-// ASK SERVICE WORKER TO REFRESH NOW
-// ============================================================
-
-chrome.runtime.sendMessage(
-
-  {
-    type:
-      "forceRefresh"
-  },
-
-  response => {
-
-    if (
-      chrome.runtime.lastError
-    ) {
-
-      return;
-    }
-
-
-    if (response) {
-
-      updatePopup(
-        response
-      );
-    }
-  }
-);
-
-
-// ============================================================
-// POPUP REFRESH
+// AUTO REFRESH
 // ============================================================
 
 setInterval(
-
   getStatus,
-
   REFRESH_INTERVAL
-
 );

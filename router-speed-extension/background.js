@@ -111,7 +111,6 @@ let routerInfo = {
 // ============================================================
 
 async function updateBadge() {
-
   const rssiNumber = Number(routerInfo.rssi);
 
   const rssi = Number.isFinite(rssiNumber)
@@ -126,19 +125,16 @@ async function updateBadge() {
     Number(currentSpeed.downloadKB) || 0
   );
 
-
-  // Badge: signal strength
+  // Badge shows download speed
   await chrome.action.setBadgeText({
-    text: String(rssi)
+    text: `↓${download} `
   });
-
 
   await chrome.action.setBadgeBackgroundColor({
     color: "#1976D2"
   });
 
-
-  // Tooltip when hovering over extension icon
+  // Hover title
   await chrome.action.setTitle({
     title:
       `↑ ${upload} KB/s | ↓ ${download} KB/s | ${rssi} dBm`
