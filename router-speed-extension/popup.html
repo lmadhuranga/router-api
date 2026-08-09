@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <title>
+    Router Speed
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="popup.css"
+  >
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+  <h1>
+    Internet Speed
+  </h1>
+
+
+  <div
+    id="status"
+    class="status"
+  >
+    Connecting...
+  </div>
+
+
+  <div class="speed-card">
+
+
+    <div class="speed-row">
+
+      <div>
+
+        <div class="label">
+          ↓ Download
+        </div>
+
+        <div
+          id="downloadKB"
+          class="speed"
+        >
+          0 KB/s
+        </div>
+
+      </div>
+
+
+      <div>
+
+        <div class="label">
+          Mbps
+        </div>
+
+        <div
+          id="downloadMbps"
+          class="mbps"
+        >
+          0
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="speed-row">
+
+      <div>
+
+        <div class="label">
+          ↑ Upload
+        </div>
+
+        <div
+          id="uploadKB"
+          class="speed"
+        >
+          0 KB/s
+        </div>
+
+      </div>
+
+
+      <div>
+
+        <div class="label">
+          Mbps
+        </div>
+
+        <div
+          id="uploadMbps"
+          class="mbps"
+        >
+          0
+        </div>
+
+      </div>
+
+    </div>
+
+
+  </div>
+
+
+  <div class="card">
+
+    <div class="card-title">
+      Title Format
+    </div>
+
+
+    <select
+      id="titleFormat"
+    >
+
+      <option value="KB">
+        ↑ 13 KB | ↓ 191 KB | 105 dBm
+      </option>
+
+      <option value="KB/s">
+        ↑ 13 KB/s | ↓ 191 KB/s | 105 dBm
+      </option>
+
+      <option value="NONE">
+        ↑ 13 | ↓ 191 | 105 dBm
+      </option>
+
+    </select>
+
+  </div>
+
+
+  <div class="card">
+
+    <div class="card-title">
+      Router Information
+    </div>
+
+
+    <div class="grid">
+
+
+      <div class="item">
+        <span>RSSI</span>
+        <strong id="rssi">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>Connection</span>
+        <strong id="connectStatus">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>WAN IP</span>
+        <strong id="wanIP">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>Gateway</span>
+        <strong id="wanGateway">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>DNS</span>
+        <strong id="wanDNS">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>DNS 2</span>
+        <strong id="wanDNS2">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>IMEI</span>
+        <strong id="imei">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>PLMN</span>
+        <strong id="plmn">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>LAN IP</span>
+        <strong id="lanIP">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>DHCP</span>
+        <strong id="dhcpServer">--</strong>
+      </div>
+
+
+      <div class="item">
+        <span>RX Packets</span>
+        <strong id="rxPackets">0</strong>
+      </div>
+
+
+      <div class="item">
+        <span>TX Packets</span>
+        <strong id="txPackets">0</strong>
+      </div>
+
+
+      <div class="item">
+        <span>Uptime</span>
+        <strong id="uptime">--</strong>
+      </div>
+
+
+    </div>
+
+  </div>
+
+
+  <div class="footer">
+
+    Refresh:
+    <strong>5 seconds</strong>
+
+  </div>
+
+</div>
+
+
+<script src="popup.js"></script>
+
+</body>
+
+</html>
