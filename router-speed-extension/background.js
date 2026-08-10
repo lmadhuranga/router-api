@@ -133,22 +133,14 @@ function updateBadge() {
       ) || 0
     );
 
-
   // Badge text = download speed
-
   chrome.action.setBadgeText({
-
     text:
       download > 0
         ? String(download)
         : "0"
-
   });
 
-
-  // ----------------------------------------------------------
-  // RSRP
-  // ----------------------------------------------------------
 
   const rssiNumber =
     Number(
@@ -156,6 +148,7 @@ function updateBadge() {
     );
 
 
+  // Unknown RSRP
   if (
     !Number.isFinite(
       rssiNumber
@@ -163,9 +156,7 @@ function updateBadge() {
   ) {
 
     chrome.action.setBadgeBackgroundColor({
-
-      color: "#64748b"
-
+      color: "#334155"
     });
 
     return;
@@ -180,25 +171,20 @@ function updateBadge() {
     );
 
 
-  // ----------------------------------------------------------
-  // <= 105 = GREEN
-  // > 105 = RED
-  // ----------------------------------------------------------
-
+  // Good signal
   if (rssi <= 105) {
 
     chrome.action.setBadgeBackgroundColor({
-
-      color: "#22c55e"
-
+      color: "#14532d"
     });
 
-  } else {
+  }
+
+  // Weak signal
+  else {
 
     chrome.action.setBadgeBackgroundColor({
-
-      color: "#ef4444"
-
+      color: "#7f1d1d"
     });
   }
 }
