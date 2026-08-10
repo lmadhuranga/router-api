@@ -1,82 +1,70 @@
+// ============================================================
+// ROUTER CONFIGURATION
+// ============================================================
+
 const ROUTER_URL =
   "http://192.168.8.1/cgi-bin/http.cgi";
 
+const ROUTER_ORIGIN =
+  "http://192.168.8.1";
+
+const ROUTER_REFERER =
+  "http://192.168.8.1/mindex.html";
+
 
 // ============================================================
-// ONE REFRESH VARIABLE
+// REFRESH CONFIGURATION
 // ============================================================
 
-const REFRESH_INTERVAL = 5000;
+const REFRESH_INTERVAL = 2000;
+
+const MAX_AUTH_RETRIES = 100;
+
+const AUTH_RETRY_DELAY = 2000;
 
 
 // ============================================================
-// AUTH
+// AUTHENTICATION
 // ============================================================
 
 const USERNAME = "admin";
 
+// MD5:
+// 21232f297a57a5a743894a0e4a801fc3 = admin
 const PASSWORD_HASH =
   "21232f297a57a5a743894a0e4a801fc3";
 
-const MAX_AUTH_RETRIES = 100;
 
-const AUTH_RETRY_DELAY = 5000;
+// Initial SessionID from router
+// This is used as the cookie when authenticating.
+let sessionCookie =
+  "DekAifiYqaou1BeBRHCMdt+5lHTJJBsW5PC8rF1aJcH08s7pA2nT0YdtGGMTmi6pe0bOmxCE2FpmZKVVhJ4YreTJbhQAsu1RDz79IP8ttfJCWRUzdaUe55n2FRi6hacx";
 
 
-// ============================================================
-// SESSION
-// ============================================================
-
-let sessionId = "";
-
-let sessionCookie = "";
-
-let authenticating = false;
-
-let authenticationPromise = null;
-
-let authAttempt = 0;
+// Current API session ID
+let sessionId =
+  "a6083050f28651c60b4ec9a6e74d7b62d0028e83c9f30bd4175622505c3520ab";
 
 
 // ============================================================
-// STATE
+// CURRENT DATA
 // ============================================================
 
-let routerStatus = "connecting";
-
-let previousCounters = null;
-
-let currentSpeed = {
+let latestSpeed = {
 
   downloadKB: 0,
 
-  downloadMbps: 0,
-
   uploadKB: 0,
+
+  downloadMbps: 0,
 
   uploadMbps: 0
 };
 
 
-let routerInfo = {
+let latestRouter = {
 
   rssi: "--",
-
-  connectStatus: "--",
-
-  wanIP: "--",
-
-  wanIPv6: "--",
-
-  wanGateway: "--",
-
-  wanDNS: "--",
-
-  wanDNS2: "--",
-
-  wanMask: "--",
-
-  wanMac: "--",
 
   wanRxBytes: 0,
 
@@ -86,183 +74,253 @@ let routerInfo = {
 
   wanTxPackets: 0,
 
-  uptime: "--",
+  wanIP: "",
 
-  imei: "--",
+  wanGateway: "",
 
-  plmn: "--",
+  plmn: "",
 
-  lanIP: "--",
-
-  lanIPv6: "--",
-
-  lanMask: "--",
-
-  lanMac: "--",
-
-  dhcpServer: "--",
-
-  netDevStatus: "--"
+  uptime: ""
 };
+
+
+let currentStatus =
+  "connecting";
+
+
+// ============================================================
+// PREVIOUS COUNTERS
+// ============================================================
+
+let previousRxBytes = null;
+
+let previousTxBytes = null;
+
+let previousTimestamp = null;
+
+
+// ============================================================
+// REQUEST LOCK
+// ============================================================
+
+let refreshRunning = false;
+
+let authenticationRunning = false;
+
+
+// ============================================================
+// HELPER - DELAY
+// ============================================================
+
+function sleep(ms) {
+
+  return new Promise(
+    resolve => setTimeout(resolve, ms)
+  );
+}
 
 
 // ============================================================
 // BADGE
 // ============================================================
 
-async function updateBadge() {
-  const rssiNumber = Number(routerInfo.rssi);
+function updateBadge() {
 
-  const rssi = Number.isFinite(rssiNumber)
-    ? Math.abs(Math.round(rssiNumber))
-    : "--";
+  const download =
+    Math.floor(
+      Number(
+        latestSpeed.downloadKB
+      ) || 0
+    );
 
-  const upload = Math.floor(
-    Number(currentSpeed.uploadKB) || 0
-  );
 
-  const download = Math.floor(
-    Number(currentSpeed.downloadKB) || 0
-  );
+  // Badge text = download speed
 
-  // Badge shows download speed
-  await chrome.action.setBadgeText({
-    text: `↓${download} `
+  chrome.action.setBadgeText({
+
+    text:
+      download > 0
+        ? String(download)
+        : "0"
+
   });
 
-  await chrome.action.setBadgeBackgroundColor({
-    color: "#1976D2"
+
+  // ----------------------------------------------------------
+  // RSRP
+  // ----------------------------------------------------------
+
+  const rssiNumber =
+    Number(
+      latestRouter.rssi
+    );
+
+
+  if (
+    !Number.isFinite(
+      rssiNumber
+    )
+  ) {
+
+    chrome.action.setBadgeBackgroundColor({
+
+      color: "#64748b"
+
+    });
+
+    return;
+  }
+
+
+  const rssi =
+    Math.abs(
+      Math.round(
+        rssiNumber
+      )
+    );
+
+
+  // ----------------------------------------------------------
+  // <= 105 = GREEN
+  // > 105 = RED
+  // ----------------------------------------------------------
+
+  if (rssi <= 105) {
+
+    chrome.action.setBadgeBackgroundColor({
+
+      color: "#22c55e"
+
+    });
+
+  } else {
+
+    chrome.action.setBadgeBackgroundColor({
+
+      color: "#ef4444"
+
+    });
+  }
+}
+
+
+// ============================================================
+// UPDATE BADGE ERROR STATE
+// ============================================================
+
+function setBadgeError() {
+
+  chrome.action.setBadgeText({
+
+    text: "!"
+
   });
 
-  // Hover title
-  await chrome.action.setTitle({
-    title:
-      `↑ ${upload} KB/s | ↓ ${download} KB/s | ${rssi} dBm`
+
+  chrome.action.setBadgeBackgroundColor({
+
+    color: "#ef4444"
+
   });
 }
 
 
 // ============================================================
-// LOAD SESSION
+// CLEAR BADGE
 // ============================================================
 
-async function loadSession() {
+function clearBadge() {
 
-  const data =
-    await chrome.storage.local.get([
-      "sessionId",
-      "sessionCookie"
-    ]);
+  chrome.action.setBadgeText({
 
+    text: ""
 
-  sessionId =
-    data.sessionId || "";
-
-  sessionCookie =
-    data.sessionCookie || "";
-}
-
-
-// ============================================================
-// SAVE SESSION
-// ============================================================
-
-async function saveSession() {
-
-  await chrome.storage.local.set({
-
-    sessionId,
-
-    sessionCookie
   });
 }
 
 
 // ============================================================
-// SLEEP
+// COMMON HEADERS
 // ============================================================
 
-function sleep(ms) {
+function getHeaders() {
 
-  return new Promise(
-    resolve =>
-      setTimeout(resolve, ms)
-  );
+  return {
+
+    "Accept":
+      "text/plain, */*; q=0.01",
+
+    "Accept-Language":
+      "en-US,en;q=0.9,tr;q=0.8",
+
+    "Connection":
+      "keep-alive",
+
+    "Content-Type":
+      "application/json; charset=UTF-8",
+
+    "DNT":
+      "1",
+
+    "Origin":
+      ROUTER_ORIGIN,
+
+    "Referer":
+      ROUTER_REFERER,
+
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+
+    "X-Requested-With":
+      "XMLHttpRequest"
+  };
 }
 
 
 // ============================================================
-// ROUTER REQUEST
+// API REQUEST
 // ============================================================
 
 async function routerRequest(
   payload,
-  referer
+  useCookie = true
 ) {
+
+  const headers =
+    getHeaders();
+
+
+  // ----------------------------------------------------------
+  // Cookie
+  // ----------------------------------------------------------
+
+  if (
+    useCookie &&
+    sessionCookie
+  ) {
+
+    headers["Cookie"] =
+      `SessionID=${sessionCookie}; sessionId=${sessionId}`;
+  }
+
 
   const response =
     await fetch(
       ROUTER_URL,
       {
 
-        method:
-          "POST",
+        method: "POST",
 
-        credentials:
-          "include",
-
-        headers: {
-
-          "Accept":
-            "text/plain, */*; q=0.01",
-
-          "Accept-Language":
-            "en-US,en;q=0.9,tr;q=0.8",
-
-          "Content-Type":
-            "application/json; charset=UTF-8",
-
-          "DNT":
-            "1",
-
-          "Origin":
-            "http://192.168.8.1",
-
-          "Referer":
-            referer,
-
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) " +
-            "Chrome/151.0.0.0 Safari/537.36",
-
-          "X-Requested-With":
-            "XMLHttpRequest"
-        },
+        headers,
 
         body:
-          JSON.stringify(payload)
+          JSON.stringify(
+            payload
+          ),
+
+        cache: "no-store"
       }
     );
-
-
-  const text =
-    await response.text();
-
-
-  let data;
-
-
-  try {
-
-    data =
-      JSON.parse(text);
-
-  } catch {
-
-    data =
-      text;
-  }
 
 
   if (!response.ok) {
@@ -273,356 +331,40 @@ async function routerRequest(
   }
 
 
-  return {
-    data,
-    text
-  };
-}
+  const text =
+    await response.text();
 
 
-// ============================================================
-// INVALID SESSION
-// ============================================================
+  if (!text) {
 
-function isInvalidSession(
-  data,
-  text = ""
-) {
+    throw new Error(
+      "Empty router response"
+    );
+  }
 
-  const value =
-    (
-      JSON.stringify(data) +
-      " " +
+
+  let data;
+
+
+  try {
+
+    data =
+      JSON.parse(text);
+
+  } catch (error) {
+
+    console.error(
+      "Invalid JSON:",
       text
-    ).toLowerCase();
+    );
 
-
-  const words = [
-
-    "invalid session",
-
-    "session invalid",
-
-    "invalid_session",
-
-    "session_invalid",
-
-    "session expired",
-
-    "session_expired",
-
-    "session timeout",
-
-    "session_timeout",
-
-    "login required",
-
-    "unauthorized",
-
-    "authentication failed",
-
-    "auth failed",
-
-    "invalid token",
-
-    "invalid_token"
-  ];
-
-
-  return words.some(
-    word =>
-      value.includes(word)
-  );
-}
-
-
-// ============================================================
-// FIND SESSION
-// ============================================================
-
-function findSessionId(data) {
-
-  if (
-    !data ||
-    typeof data !== "object"
-  ) {
-
-    return null;
+    throw new Error(
+      "Invalid router response"
+    );
   }
 
 
-  const keys = [
-
-    "sessionId",
-
-    "sessionID",
-
-    "session_id",
-
-    "sid"
-  ];
-
-
-  for (
-    const key of keys
-  ) {
-
-    if (
-      data[key] &&
-      String(data[key]).length > 10
-    ) {
-
-      return String(
-        data[key]
-      );
-    }
-  }
-
-
-  return null;
-}
-
-
-// ============================================================
-// GET ROUTER INFO
-// ============================================================
-
-async function getRouterInfo() {
-
-  return routerRequest(
-
-    {
-
-      cmd: 0,
-
-      method: "GET",
-
-      language: "EN",
-
-      sessionId
-    },
-
-    "http://192.168.8.1/mindex.html"
-  );
-}
-
-
-// ============================================================
-// UPDATE ROUTER INFO
-// ============================================================
-
-function updateRouterInfo(data) {
-
-  if (
-    !data ||
-    typeof data !== "object"
-  ) {
-
-    return;
-  }
-
-
-  routerInfo = {
-
-    ...routerInfo,
-
-    rssi:
-      data.rssi ??
-      routerInfo.rssi,
-
-    connectStatus:
-      data.connectStatus ??
-      routerInfo.connectStatus,
-
-    wanIP:
-      data.wanIP ??
-      routerInfo.wanIP,
-
-    wanIPv6:
-      data.wanIPV6 ??
-      routerInfo.wanIPv6,
-
-    wanGateway:
-      data.wanGateway ??
-      routerInfo.wanGateway,
-
-    wanDNS:
-      data.wanDNS ??
-      routerInfo.wanDNS,
-
-    wanDNS2:
-      data.wanDNS_2 ??
-      routerInfo.wanDNS2,
-
-    wanMask:
-      data.wanMaskIp ??
-      routerInfo.wanMask,
-
-    wanMac:
-      data.wanMac ??
-      routerInfo.wanMac,
-
-    wanRxBytes:
-      Number(
-        data.wanRxBytes ??
-        routerInfo.wanRxBytes
-      ),
-
-    wanTxBytes:
-      Number(
-        data.wanTxBytes ??
-        routerInfo.wanTxBytes
-      ),
-
-    wanRxPackets:
-      Number(
-        data.wanRxPackets ??
-        routerInfo.wanRxPackets
-      ),
-
-    wanTxPackets:
-      Number(
-        data.wanTxPackets ??
-        routerInfo.wanTxPackets
-      ),
-
-    uptime:
-      data.uptime ??
-      routerInfo.uptime,
-
-    imei:
-      data.imei ??
-      routerInfo.imei,
-
-    plmn:
-      data.plmn ??
-      routerInfo.plmn,
-
-    lanIP:
-      data.lanIP ??
-      routerInfo.lanIP,
-
-    lanIPv6:
-      data.lanIPV6 ??
-      routerInfo.lanIPv6,
-
-    lanMask:
-      data.lanMaskIp ??
-      routerInfo.lanMask,
-
-    lanMac:
-      data.lanMac ??
-      routerInfo.lanMac,
-
-    dhcpServer:
-      data.dhcpServer ??
-      routerInfo.dhcpServer,
-
-    netDevStatus:
-      data.netDevStatus ??
-      routerInfo.netDevStatus
-  };
-
-
-  // Update extension icon immediately
-  updateBadge();
-}
-
-
-// ============================================================
-// SPEED
-// ============================================================
-
-function calculateSpeed(
-  previous,
-  current
-) {
-
-  if (!previous) {
-
-    return {
-
-      downloadKB: 0,
-
-      downloadMbps: 0,
-
-      uploadKB: 0,
-
-      uploadMbps: 0
-    };
-  }
-
-
-  const seconds =
-    (
-      current.timestamp -
-      previous.timestamp
-    ) / 1000;
-
-
-  if (seconds <= 0) {
-
-    return {
-
-      downloadKB: 0,
-
-      downloadMbps: 0,
-
-      uploadKB: 0,
-
-      uploadMbps: 0
-    };
-  }
-
-
-  let rxBytes =
-    current.rxBytes -
-    previous.rxBytes;
-
-
-  let txBytes =
-    current.txBytes -
-    previous.txBytes;
-
-
-  if (rxBytes < 0) {
-
-    rxBytes = 0;
-  }
-
-
-  if (txBytes < 0) {
-
-    txBytes = 0;
-  }
-
-
-  const rxPerSecond =
-    rxBytes / seconds;
-
-
-  const txPerSecond =
-    txBytes / seconds;
-
-
-  return {
-
-    downloadKB:
-      rxPerSecond / 1024,
-
-    uploadKB:
-      txPerSecond / 1024,
-
-    downloadMbps:
-      (
-        rxPerSecond * 8
-      ) / 1000000,
-
-    uploadMbps:
-      (
-        txPerSecond * 8
-      ) / 1000000
-  };
+  return data;
 }
 
 
@@ -632,292 +374,878 @@ function calculateSpeed(
 
 async function authenticate() {
 
-  if (authenticationPromise) {
+  if (
+    authenticationRunning
+  ) {
 
-    return authenticationPromise;
+    return false;
   }
 
 
-  authenticationPromise =
-    (async () => {
-
-      authenticating =
-        true;
-
-      routerStatus =
-        "authenticating";
-
-      previousCounters =
-        null;
+  authenticationRunning =
+    true;
 
 
-      for (
-        let attempt = 1;
-
-        attempt <= MAX_AUTH_RETRIES;
-
-        attempt++
-      ) {
-
-        authAttempt =
-          attempt;
+  currentStatus =
+    "authenticating";
 
 
-        try {
-
-          const result =
-            await routerRequest(
-
-              {
-
-                cmd: 100,
-
-                method: "POST",
-
-                sessionId,
-
-                username:
-                  USERNAME,
-
-                passwd:
-                  PASSWORD_HASH,
-
-                language:
-                  "EN"
-              },
-
-              "http://192.168.8.1/login.html"
-            );
-
-
-          const newSessionId =
-            findSessionId(
-              result.data
-            );
-
-
-          if (newSessionId) {
-
-            sessionId =
-              newSessionId;
-
-            await saveSession();
-          }
-
-
-          const verify =
-            await getRouterInfo();
-
-
-          if (
-            isInvalidSession(
-              verify.data,
-              verify.text
-            )
-          ) {
-
-            throw new Error(
-              "Authentication rejected"
-            );
-          }
-
-
-          if (
-            verify.data &&
-            typeof verify.data === "object" &&
-            verify.data.success === false
-          ) {
-
-            throw new Error(
-              "Authentication failed"
-            );
-          }
-
-
-          updateRouterInfo(
-            verify.data
-          );
-
-
-          authenticating =
-            false;
-
-          authAttempt =
-            0;
-
-          routerStatus =
-            "connected";
-
-
-          return true;
-
-
-        } catch (error) {
-
-          console.error(
-            `Auth ${attempt}/${MAX_AUTH_RETRIES}:`,
-            error.message
-          );
-
-
-          if (
-            attempt >=
-            MAX_AUTH_RETRIES
-          ) {
-
-            authenticating =
-              false;
-
-            routerStatus =
-              "authentication_failed";
-
-            await updateBadge();
-
-            return false;
-          }
-
-
-          await sleep(
-            AUTH_RETRY_DELAY
-          );
-        }
-      }
-
-
-      return false;
-
-    })();
+  console.log(
+    "Starting router authentication..."
+  );
 
 
   try {
 
-    return await authenticationPromise;
+    for (
+      let attempt = 1;
+      attempt <= MAX_AUTH_RETRIES;
+      attempt++
+    ) {
+
+      console.log(
+        `Authentication attempt ${attempt}/${MAX_AUTH_RETRIES}`
+      );
+
+
+      try {
+
+        const payload = {
+
+          cmd: 100,
+
+          method: "POST",
+
+          sessionId:
+            sessionId,
+
+          username:
+            USERNAME,
+
+          passwd:
+            PASSWORD_HASH,
+
+          language:
+            "EN"
+        };
+
+
+        const data =
+          await routerRequest(
+            payload,
+            true
+          );
+
+
+        console.log(
+          "Authentication response:",
+          data
+        );
+
+
+        // ----------------------------------------------------
+        // Authentication failed
+        // ----------------------------------------------------
+
+        if (
+          !data ||
+          data.success === false
+        ) {
+
+          throw new Error(
+            "Authentication failed"
+          );
+        }
+
+
+        // ----------------------------------------------------
+        // Get new sessionId
+        // ----------------------------------------------------
+
+        const newSessionId =
+          findSessionId(
+            data
+          );
+
+
+        if (newSessionId) {
+
+          sessionId =
+            newSessionId;
+
+          console.log(
+            "New sessionId:",
+            sessionId
+          );
+        }
+
+
+        // ----------------------------------------------------
+        // Get SessionID if returned
+        // ----------------------------------------------------
+
+        const newSessionCookie =
+          findSessionCookie(
+            data
+          );
+
+
+        if (newSessionCookie) {
+
+          sessionCookie =
+            newSessionCookie;
+        }
+
+
+        currentStatus =
+          "connected";
+
+
+        authenticationRunning =
+          false;
+
+
+        console.log(
+          "Router authentication successful"
+        );
+
+
+        clearBadge();
+
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          `Authentication attempt ${attempt} failed:`,
+          error
+        );
+
+
+        currentStatus =
+          "authentication_failed";
+
+
+        if (
+          attempt >=
+          MAX_AUTH_RETRIES
+        ) {
+
+          console.error(
+            "Maximum authentication attempts reached."
+          );
+
+
+          setBadgeError();
+
+          authenticationRunning =
+            false;
+
+          return false;
+        }
+
+
+        await sleep(
+          AUTH_RETRY_DELAY
+        );
+      }
+    }
 
   } finally {
 
-    authenticationPromise =
-      null;
+    authenticationRunning =
+      false;
   }
+
+
+  return false;
 }
 
 
 // ============================================================
-// POLL
+// FIND SESSION ID
 // ============================================================
 
-async function pollRouter() {
+function findSessionId(data) {
 
-  if (authenticating) {
+  if (!data) {
+    return null;
+  }
+
+
+  const possibleKeys = [
+
+    "sessionId",
+
+    "sessionID",
+
+    "SessionID",
+
+    "session",
+
+    "sid"
+
+  ];
+
+
+  for (
+    const key of possibleKeys
+  ) {
+
+    if (
+      typeof data[key] ===
+      "string" &&
+      data[key].length > 0
+    ) {
+
+      return data[key];
+    }
+  }
+
+
+  return null;
+}
+
+
+// ============================================================
+// FIND SESSION COOKIE
+// ============================================================
+
+function findSessionCookie(data) {
+
+  if (!data) {
+    return null;
+  }
+
+
+  const possibleKeys = [
+
+    "SessionID",
+
+    "sessionID",
+
+    "sessionCookie",
+
+    "cookie"
+
+  ];
+
+
+  for (
+    const key of possibleKeys
+  ) {
+
+    if (
+      typeof data[key] ===
+      "string" &&
+      data[key].length > 0
+    ) {
+
+      return data[key];
+    }
+  }
+
+
+  return null;
+}
+
+
+// ============================================================
+// GET BASIC ROUTER INFORMATION
+// cmd: 0
+// ============================================================
+
+async function getRouterInformation() {
+
+  const payload = {
+
+    cmd: 0,
+
+    method: "GET",
+
+    language: "EN",
+
+    sessionId:
+      sessionId
+  };
+
+
+  const data =
+    await routerRequest(
+      payload
+    );
+
+
+  // ----------------------------------------------------------
+  // Session invalid
+  // ----------------------------------------------------------
+
+  if (
+    isSessionInvalid(data)
+  ) {
+
+    throw new Error(
+      "SESSION_EXPIRED"
+    );
+  }
+
+
+  if (
+    data &&
+    data.success === false
+  ) {
+
+    throw new Error(
+      "SESSION_EXPIRED"
+    );
+  }
+
+
+  // ----------------------------------------------------------
+  // Router data
+  // ----------------------------------------------------------
+
+  latestRouter = {
+
+    ...latestRouter,
+
+    rssi:
+      data.rssi ??
+      latestRouter.rssi,
+
+    wanRxBytes:
+      Number(
+        data.wanRxBytes
+      ) ||
+      latestRouter.wanRxBytes,
+
+    wanTxBytes:
+      Number(
+        data.wanTxBytes
+      ) ||
+      latestRouter.wanTxBytes,
+
+    wanRxPackets:
+      Number(
+        data.wanRxPackets
+      ) ||
+      latestRouter.wanRxPackets,
+
+    wanTxPackets:
+      Number(
+        data.wanTxPackets
+      ) ||
+      latestRouter.wanTxPackets,
+
+    wanIP:
+      data.wanIP ??
+      latestRouter.wanIP,
+
+    wanGateway:
+      data.wanGateway ??
+      latestRouter.wanGateway,
+
+    plmn:
+      data.plmn ??
+      latestRouter.plmn,
+
+    uptime:
+      data.uptime ??
+      latestRouter.uptime
+  };
+
+
+  // ----------------------------------------------------------
+  // Calculate speed from bytes
+  // ----------------------------------------------------------
+
+  calculateSpeed();
+
+
+  // ----------------------------------------------------------
+  // Update extension badge
+  // ----------------------------------------------------------
+
+  updateBadge();
+
+
+  return data;
+}
+
+
+// ============================================================
+// SESSION INVALID CHECK
+// ============================================================
+
+function isSessionInvalid(data) {
+
+  if (!data) {
+
+    return true;
+  }
+
+
+  const text =
+    JSON.stringify(
+      data
+    ).toLowerCase();
+
+
+  const invalidWords = [
+
+    "invalid session",
+
+    "session expired",
+
+    "sessionid invalid",
+
+    "invalid sessionid",
+
+    "not login",
+
+    "not logged",
+
+    "unauthorized",
+
+    "authentication failed",
+
+    "login required"
+
+  ];
+
+
+  return invalidWords.some(
+    word =>
+      text.includes(word)
+  );
+}
+
+
+// ============================================================
+// SPEED CALCULATION
+// ============================================================
+//
+// wanRxBytes / wanTxBytes are cumulative counters.
+//
+// Example:
+//
+// Previous RX = 844350405
+// Current RX  = 844541999
+//
+// Difference = bytes transferred
+//
+// KB/s = bytes / elapsed seconds / 1024
+//
+// Mbps = bytes * 8 / seconds / 1,000,000
+//
+// ============================================================
+
+function calculateSpeed() {
+
+  const currentRx =
+    Number(
+      latestRouter.wanRxBytes
+    );
+
+
+  const currentTx =
+    Number(
+      latestRouter.wanTxBytes
+    );
+
+
+  const now =
+    Date.now();
+
+
+  if (
+    !Number.isFinite(
+      currentRx
+    ) ||
+    !Number.isFinite(
+      currentTx
+    )
+  ) {
 
     return;
   }
 
 
-  try {
+  // ----------------------------------------------------------
+  // First reading
+  // ----------------------------------------------------------
 
-    const result =
-      await getRouterInfo();
+  if (
+    previousRxBytes === null ||
+    previousTxBytes === null ||
+    previousTimestamp === null
+  ) {
 
+    previousRxBytes =
+      currentRx;
 
-    if (
-      isInvalidSession(
-        result.data,
-        result.text
-      )
-    ) {
+    previousTxBytes =
+      currentTx;
 
-      await authenticate();
-
-      return;
-    }
-
-
-    if (
-      result.data &&
-      typeof result.data === "object" &&
-      result.data.success === false
-    ) {
-
-      await authenticate();
-
-      return;
-    }
+    previousTimestamp =
+      now;
 
 
-    updateRouterInfo(
-      result.data
-    );
+    latestSpeed = {
 
+      downloadKB: 0,
 
-    const rxBytes =
-      Number(
-        result.data.wanRxBytes
-      );
+      uploadKB: 0,
 
+      downloadMbps: 0,
 
-    const txBytes =
-      Number(
-        result.data.wanTxBytes
-      );
-
-
-    if (
-      !Number.isFinite(rxBytes) ||
-      !Number.isFinite(txBytes)
-    ) {
-
-      throw new Error(
-        "Invalid traffic counters"
-      );
-    }
-
-
-    const counters = {
-
-      rxBytes,
-
-      txBytes,
-
-      timestamp:
-        Date.now()
+      uploadMbps: 0
     };
 
 
-    currentSpeed =
-      calculateSpeed(
-        previousCounters,
-        counters
-      );
-
-    previousCounters =
-      counters;
-
-    routerStatus =
-      "connected";
-
-    // Update icon badge + hover title
-    await updateBadge();
+    return;
+  }
 
 
-  } catch (error) {
+  // ----------------------------------------------------------
+  // Time elapsed
+  // ----------------------------------------------------------
 
-    console.error(
-      "Router error:",
-      error.message
+  const elapsedSeconds =
+    (
+      now -
+      previousTimestamp
+    ) / 1000;
+
+
+  if (
+    elapsedSeconds <= 0
+  ) {
+
+    return;
+  }
+
+
+  // ----------------------------------------------------------
+  // Byte differences
+  // ----------------------------------------------------------
+
+  let rxDiff =
+    currentRx -
+    previousRxBytes;
+
+
+  let txDiff =
+    currentTx -
+    previousTxBytes;
+
+
+  // ----------------------------------------------------------
+  // Router counter reset
+  // ----------------------------------------------------------
+
+  if (
+    rxDiff < 0
+  ) {
+
+    rxDiff = 0;
+  }
+
+
+  if (
+    txDiff < 0
+  ) {
+
+    txDiff = 0;
+  }
+
+
+  // ----------------------------------------------------------
+  // KB/s
+  // ----------------------------------------------------------
+
+  const downloadKB =
+    rxDiff /
+    elapsedSeconds /
+    1024;
+
+
+  const uploadKB =
+    txDiff /
+    elapsedSeconds /
+    1024;
+
+
+  // ----------------------------------------------------------
+  // Mbps
+  // ----------------------------------------------------------
+
+  const downloadMbps =
+    (
+      rxDiff *
+      8 /
+      elapsedSeconds /
+      1000000
     );
 
 
-    routerStatus =
-      "offline";
+  const uploadMbps =
+    (
+      txDiff *
+      8 /
+      elapsedSeconds /
+      1000000
+    );
 
 
-    await updateBadge();
+  latestSpeed = {
+
+    downloadKB:
+      Number(
+        downloadKB.toFixed(2)
+      ),
+
+    uploadKB:
+      Number(
+        uploadKB.toFixed(2)
+      ),
+
+    downloadMbps:
+      Number(
+        downloadMbps.toFixed(3)
+      ),
+
+    uploadMbps:
+      Number(
+        uploadMbps.toFixed(3)
+      )
+  };
+
+
+  // ----------------------------------------------------------
+  // Save counters
+  // ----------------------------------------------------------
+
+  previousRxBytes =
+    currentRx;
+
+  previousTxBytes =
+    currentTx;
+
+  previousTimestamp =
+    now;
+}
+
+
+// ============================================================
+// RESET SPEED COUNTERS
+// ============================================================
+
+function resetSpeedCounters() {
+
+  previousRxBytes =
+    null;
+
+  previousTxBytes =
+    null;
+
+  previousTimestamp =
+    null;
+
+
+  latestSpeed = {
+
+    downloadKB: 0,
+
+    uploadKB: 0,
+
+    downloadMbps: 0,
+
+    uploadMbps: 0
+  };
+}
+
+
+// ============================================================
+// MAIN REFRESH
+// ============================================================
+
+async function refreshRouter() {
+
+  if (
+    refreshRunning
+  ) {
+
+    return;
+  }
+
+
+  if (
+    authenticationRunning
+  ) {
+
+    return;
+  }
+
+
+  refreshRunning =
+    true;
+
+
+  try {
+
+    currentStatus =
+      "connecting";
+
+
+    try {
+
+      // ------------------------------------------------------
+      // Get router information
+      // ------------------------------------------------------
+
+      await getRouterInformation();
+
+
+      currentStatus =
+        "connected";
+
+    } catch (error) {
+
+      console.error(
+        "Router request failed:",
+        error
+      );
+
+
+      // ------------------------------------------------------
+      // Session expired
+      // ------------------------------------------------------
+
+      if (
+        error.message ===
+        "SESSION_EXPIRED"
+      ) {
+
+        console.log(
+          "Session expired. Re-authenticating..."
+        );
+
+
+        resetSpeedCounters();
+
+
+        const authenticated =
+          await authenticate();
+
+
+        if (
+          authenticated
+        ) {
+
+          try {
+
+            await getRouterInformation();
+
+            currentStatus =
+              "connected";
+
+          } catch (
+            retryError
+          ) {
+
+            console.error(
+              "Request after authentication failed:",
+              retryError
+            );
+
+            currentStatus =
+              "server_error";
+          }
+
+        } else {
+
+          currentStatus =
+            "authentication_failed";
+        }
+
+      } else {
+
+        currentStatus =
+          "server_error";
+      }
+    }
+
+  } finally {
+
+    refreshRunning =
+      false;
   }
 }
 
 
 // ============================================================
-// POPUP MESSAGE
+// GET STATUS FOR POPUP
+// ============================================================
+
+function getStatus() {
+
+  return {
+
+    status:
+      currentStatus,
+
+    speed: {
+
+      downloadKB:
+        latestSpeed.downloadKB,
+
+      uploadKB:
+        latestSpeed.uploadKB,
+
+      downloadMbps:
+        latestSpeed.downloadMbps,
+
+      uploadMbps:
+        latestSpeed.uploadMbps
+    },
+
+    router: {
+
+      rssi:
+        latestRouter.rssi,
+
+      wanRxBytes:
+        latestRouter.wanRxBytes,
+
+      wanTxBytes:
+        latestRouter.wanTxBytes,
+
+      wanRxPackets:
+        latestRouter.wanRxPackets,
+
+      wanTxPackets:
+        latestRouter.wanTxPackets,
+
+      wanIP:
+        latestRouter.wanIP,
+
+      wanGateway:
+        latestRouter.wanGateway,
+
+      plmn:
+        latestRouter.plmn,
+
+      uptime:
+        latestRouter.uptime
+    }
+  };
+}
+
+
+// ============================================================
+// MESSAGE HANDLER
 // ============================================================
 
 chrome.runtime.onMessage.addListener(
@@ -928,93 +1256,107 @@ chrome.runtime.onMessage.addListener(
     sendResponse
   ) => {
 
+    // --------------------------------------------------------
+    // Popup asks for current data
+    // --------------------------------------------------------
+
     if (
       message.type ===
       "getStatus"
     ) {
 
-      sendResponse({
-
-        status:
-          routerStatus,
-
-        authAttempt,
-
-        maxAuthRetries:
-          MAX_AUTH_RETRIES,
-
-        speed:
-          currentSpeed,
-
-        router:
-          routerInfo
-      });
-
+      sendResponse(
+        getStatus()
+      );
 
       return true;
     }
 
+
+    // --------------------------------------------------------
+    // Popup requests immediate refresh
+    // --------------------------------------------------------
 
     if (
       message.type ===
       "forceRefresh"
     ) {
 
-      pollRouter()
-        .then(() => {
+      refreshRouter()
+        .then(
+          () => {
 
-          sendResponse({
+            sendResponse(
+              getStatus()
+            );
+          }
+        )
+        .catch(
+          error => {
 
-            status:
-              routerStatus,
+            console.error(
+              error
+            );
 
-            authAttempt,
-
-            maxAuthRetries:
-              MAX_AUTH_RETRIES,
-
-            speed:
-              currentSpeed,
-
-            router:
-              routerInfo
-          });
-
-        });
+            sendResponse(
+              getStatus()
+            );
+          }
+        );
 
 
       return true;
     }
+
+
+    return false;
   }
 );
 
 
 // ============================================================
-// START
+// EXTENSION STARTUP
 // ============================================================
 
-(async () => {
-
-  await loadSession();
-
-
-  // Immediately set badge state
-  await updateBadge();
+console.log(
+  "Internet Speed Monitor started"
+);
 
 
-  // First router request
-  await pollRouter();
+// Initial badge
 
-})();
+chrome.action.setBadgeText({
+
+  text: "0"
+
+});
+
+
+chrome.action.setBadgeBackgroundColor({
+
+  color: "#64748b"
+
+});
 
 
 // ============================================================
-// REFRESH EVERY 5 SECONDS
+// INITIAL REQUEST
+// ============================================================
+
+refreshRouter();
+
+
+// ============================================================
+// AUTO REFRESH
 // ============================================================
 
 setInterval(
 
-  pollRouter,
+  () => {
+
+    refreshRouter();
+
+  },
 
   REFRESH_INTERVAL
 
