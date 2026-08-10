@@ -1,409 +1,795 @@
-const REFRESH_INTERVAL = 5000;
+// ============================================================
+// POPUP.JS
+// ============================================================
+
+const REFRESH_INTERVAL = 2000;
+
+let refreshTimer = null;
+let isRefreshing = false;
 
 
 // ============================================================
-// ELEMENTS
+// DOM
 // ============================================================
 
-const speedTitle =
-  document.getElementById("speedTitle");
+const titleSpeed =
+  document.getElementById("titleSpeed");
 
-const status =
-  document.getElementById("status");
+const refreshBtn =
+  document.getElementById("refreshBtn");
 
-const titleFormat =
-  document.getElementById("titleFormat");
+const refreshStatus =
+  document.getElementById("refreshStatus");
 
-const refreshButton =
-  document.getElementById("refreshButton");
+const wifiToggleBtn =
+  document.getElementById("wifiToggleBtn");
 
-
-// ============================================================
-// DATA
-// ============================================================
-
-let latestSpeed = {
-  downloadKB: 0,
-  uploadKB: 0
-};
-
-let latestRouter = {
-  rssi: "--"
-};
+const wifiStatus =
+  document.getElementById("wifiStatus");
 
 
 // ============================================================
-// TITLE FORMAT
+// FORMAT NUMBER
 // ============================================================
 
-let selectedTitleFormat =
-  localStorage.getItem("titleFormat") || "KB";
+function formatSpeed(value) {
 
-if (titleFormat) {
-  titleFormat.value =
-    selectedTitleFormat;
-}
+  const number =
+    Number(value) || 0;
 
+  return Math.round(number);
 
-// ============================================================
-// CREATE TITLE
-// ============================================================
-
-function createSpeedTitle() {
-
-  const upload =
-    Math.floor(
-      Number(
-        latestSpeed.uploadKB
-      ) || 0
-    );
-
-  const download =
-    Math.floor(
-      Number(
-        latestSpeed.downloadKB
-      ) || 0
-    );
-
-  const rssiNumber =
-    Number(
-      latestRouter.rssi
-    );
-
-  const rssi =
-    Number.isFinite(rssiNumber)
-      ? Math.abs(
-          Math.round(rssiNumber)
-        )
-      : "--";
-
-
-  if (
-    selectedTitleFormat === "KB/s"
-  ) {
-
-    return (
-      `↑ ${upload} KB/s | ` +
-      `↓ ${download} KB/s | ` +
-      `${rssi} dBm`
-    );
-  }
-
-
-  if (
-    selectedTitleFormat === "plain"
-  ) {
-
-    return (
-      `↑ ${upload} | ` +
-      `↓ ${download} | ` +
-      `${rssi} dBm`
-    );
-  }
-
-
-  // Default
-
-  return (
-    `↑ ${upload} KB | ` +
-    `↓ ${download} KB | ` +
-    `${rssi} dBm`
-  );
 }
 
 
 // ============================================================
 // UPDATE TITLE
+//
+// Default format:
+//
+// ↑ 13 KB | ↓ 191 KB | 105 dBm
 // ============================================================
 
-function updateTitle() {
-
-  const title =
-    createSpeedTitle();
-
-
-  if (speedTitle) {
-    speedTitle.textContent =
-      title;
-  }
-
-
-  // Popup document title
-  document.title =
-    title;
-}
-
-
-// ============================================================
-// UPDATE FROM BACKGROUND
-// ============================================================
-
-function updateFromBackground(
-  data
-) {
+function updateSpeedTitle(data) {
 
   if (!data) {
     return;
   }
 
 
-  // ----------------------------------------------------------
-  // SPEED
-  // ----------------------------------------------------------
+  const upload =
+    formatSpeed(
+      data?.speed?.uploadKB
+    );
 
-  if (data.speed) {
 
-    latestSpeed =
-      data.speed;
+  const download =
+    formatSpeed(
+      data?.speed?.downloadKB
+    );
+
+
+  const rssiValue =
+    Number(
+      data?.router?.rssi
+    );
+
+
+  const rssi =
+    Number.isFinite(rssiValue)
+      ? Math.abs(Math.round(rssiValue))
+      : "--";
+
+
+  const title =
+    `↑ ${upload} KB | ↓ ${download} KB | ${rssi} dBm`;
+
+
+  if (titleSpeed) {
+
+    titleSpeed.textContent =
+      title;
+
   }
 
 
-  // ----------------------------------------------------------
-  // ROUTER
-  // ----------------------------------------------------------
-
-  if (data.router) {
-
-    latestRouter =
-      data.router;
-  }
-
-
-  // ----------------------------------------------------------
-  // STATUS
-  // ----------------------------------------------------------
-
-  if (data.status) {
-
-    if (
-      data.status ===
-      "connected"
-    ) {
-
-      status.textContent =
-        "● Connected";
-
-    } else if (
-      data.status ===
-      "authenticating"
-    ) {
-
-      status.textContent =
-        "Authenticating...";
-
-    } else if (
-      data.status ===
-      "authentication_failed"
-    ) {
-
-      status.textContent =
-        "Authentication failed";
-
-    } else if (
-      data.status ===
-      "offline"
-    ) {
-
-      status.textContent =
-        "● Router offline";
-
-    } else {
-
-      status.textContent =
-        data.status;
-    }
-  }
-
-
-  updateTitle();
+  document.title =
+    title;
 }
 
 
 // ============================================================
-// GET STATUS
+// UPDATE WIFI UI
 // ============================================================
 
-function getStatus() {
+function updateWifiUI(wifi) {
 
-  chrome.runtime.sendMessage(
-
-    {
-      type: "getStatus"
-    },
-
-    response => {
-
-      if (
-        chrome.runtime.lastError
-      ) {
-
-        console.log(
-          "getStatus:",
-          chrome.runtime.lastError.message
-        );
-
-        status.textContent =
-          "Waiting for router...";
-
-        return;
-      }
-
-
-      if (response) {
-
-        updateFromBackground(
-          response
-        );
-
-      } else {
-
-        status.textContent =
-          "Waiting for router...";
-      }
-    }
-  );
-}
-
-
-// ============================================================
-// FORCE REFRESH
-// ============================================================
-
-function forceRefresh() {
-
-  if (!refreshButton) {
+  if (!wifi) {
     return;
   }
 
 
-  refreshButton.classList.add(
-    "loading"
+  let visible;
+
+
+  if (
+    wifi.broadcast === "0"
+  ) {
+
+    visible = true;
+
+  } else if (
+    wifi.broadcast === "1"
+  ) {
+
+    visible = false;
+
+  } else if (
+    typeof wifi.visible === "boolean"
+  ) {
+
+    visible =
+      wifi.visible;
+
+  } else {
+
+    wifiStatus.textContent =
+      "Unknown";
+
+    wifiToggleBtn.textContent =
+      "Unknown";
+
+    return;
+  }
+
+
+  if (visible) {
+
+    wifiStatus.textContent =
+      "SSID is visible";
+
+
+    wifiToggleBtn.textContent =
+      "Hide Wi-Fi";
+
+
+    wifiToggleBtn.classList.add(
+      "wifi-visible"
+    );
+
+
+    wifiToggleBtn.classList.remove(
+      "wifi-hidden"
+    );
+
+
+    wifiToggleBtn.dataset.state =
+      "visible";
+
+  } else {
+
+    wifiStatus.textContent =
+      "SSID is hidden";
+
+
+    wifiToggleBtn.textContent =
+      "Show Wi-Fi";
+
+
+    wifiToggleBtn.classList.add(
+      "wifi-hidden"
+    );
+
+
+    wifiToggleBtn.classList.remove(
+      "wifi-visible"
+    );
+
+
+    wifiToggleBtn.dataset.state =
+      "hidden";
+  }
+}
+
+
+// ============================================================
+// GET WIFI STATUS
+// ============================================================
+
+function getWifiVisibility() {
+
+  return new Promise(
+    resolve => {
+
+      chrome.runtime.sendMessage(
+
+        {
+          type:
+            "getWifiVisibility"
+        },
+
+        response => {
+
+          if (
+            chrome.runtime.lastError
+          ) {
+
+            console.error(
+              chrome.runtime.lastError.message
+            );
+
+
+            resolve(
+              {
+                success:
+                  false,
+
+                message:
+                  chrome.runtime
+                    .lastError
+                    .message
+              }
+            );
+
+            return;
+          }
+
+
+          resolve(
+            response
+          );
+
+        }
+      );
+
+    }
   );
 
-  refreshButton.disabled =
+}
+
+
+// ============================================================
+// LOAD WIFI STATUS
+// ============================================================
+
+async function loadWifiStatus() {
+
+  if (!wifiToggleBtn) {
+    return;
+  }
+
+
+  try {
+
+    wifiToggleBtn.disabled =
+      true;
+
+
+    wifiStatus.textContent =
+      "Checking...";
+
+
+    wifiToggleBtn.textContent =
+      "Checking...";
+
+
+    const result =
+      await getWifiVisibility();
+
+
+    if (
+      result &&
+      result.success
+    ) {
+
+      updateWifiUI(
+        result
+      );
+
+    } else {
+
+      wifiStatus.textContent =
+        result?.message ||
+        "Unable to read Wi-Fi status";
+
+
+      wifiToggleBtn.textContent =
+        "Retry";
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Wi-Fi status error:",
+      error
+    );
+
+
+    wifiStatus.textContent =
+      "Connection error";
+
+
+    wifiToggleBtn.textContent =
+      "Retry";
+
+  } finally {
+
+    wifiToggleBtn.disabled =
+      false;
+
+  }
+
+}
+
+
+// ============================================================
+// TOGGLE WIFI
+// ============================================================
+
+async function toggleWifiVisibility() {
+
+  if (
+    !wifiToggleBtn ||
+    wifiToggleBtn.disabled
+  ) {
+
+    return;
+  }
+
+
+  const currentState =
+    wifiToggleBtn.dataset.state;
+
+
+  if (
+    currentState !== "visible" &&
+    currentState !== "hidden"
+  ) {
+
+    await loadWifiStatus();
+
+    return;
+  }
+
+
+  /*
+   * visible -> hidden
+   *
+   * hidden -> visible
+   */
+
+  const newBroadcast =
+    currentState === "visible"
+      ? "1"
+      : "0";
+
+
+  wifiToggleBtn.disabled =
     true;
 
 
-  status.textContent =
-    "Refreshing router...";
+  if (
+    newBroadcast === "1"
+  ) {
+
+    wifiStatus.textContent =
+      "Hiding Wi-Fi...";
+
+  } else {
+
+    wifiStatus.textContent =
+      "Showing Wi-Fi...";
+
+  }
 
 
-  chrome.runtime.sendMessage(
+  wifiToggleBtn.textContent =
+    "Updating...";
 
-    {
-      type: "forceRefresh"
-    },
 
-    response => {
+  try {
 
-      refreshButton.classList.remove(
-        "loading"
+    const result =
+      await new Promise(
+        resolve => {
+
+          chrome.runtime.sendMessage(
+
+            {
+              type:
+                "setWifiVisibility",
+
+              broadcast:
+                newBroadcast
+            },
+
+            response => {
+
+              if (
+                chrome.runtime.lastError
+              ) {
+
+                resolve(
+                  {
+                    success:
+                      false,
+
+                    message:
+                      chrome.runtime
+                        .lastError
+                        .message
+                  }
+                );
+
+                return;
+              }
+
+
+              resolve(
+                response
+              );
+
+            }
+          );
+
+        }
       );
 
-      refreshButton.disabled =
-        false;
 
+    if (
+      result &&
+      result.success
+    ) {
+
+      /*
+       * background.js verifies the
+       * actual router state after POST.
+       */
+
+      updateWifiUI(
+        result
+      );
+
+    } else {
+
+      console.error(
+        "Wi-Fi toggle failed:",
+        result
+      );
+
+
+      wifiStatus.textContent =
+        result?.message ||
+        "Failed to change Wi-Fi";
+
+
+      /*
+       * Re-read actual router state.
+       */
+
+      await loadWifiStatus();
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Wi-Fi toggle error:",
+      error
+    );
+
+
+    wifiStatus.textContent =
+      "Request failed";
+
+
+    await loadWifiStatus();
+
+  } finally {
+
+    wifiToggleBtn.disabled =
+      false;
+
+  }
+
+}
+
+
+// ============================================================
+// GET ROUTER STATUS
+// ============================================================
+
+function getRouterStatus() {
+
+  return new Promise(
+    resolve => {
+
+      chrome.runtime.sendMessage(
+
+        {
+          type:
+            "getStatus"
+        },
+
+        response => {
+
+          if (
+            chrome.runtime.lastError
+          ) {
+
+            console.error(
+              chrome.runtime.lastError.message
+            );
+
+
+            resolve(
+              null
+            );
+
+            return;
+          }
+
+
+          resolve(
+            response
+          );
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+// ============================================================
+// REFRESH ROUTER
+// ============================================================
+
+async function refreshRouter() {
+
+  if (
+    isRefreshing
+  ) {
+
+    return;
+
+  }
+
+
+  isRefreshing =
+    true;
+
+
+  if (refreshStatus) {
+
+    refreshStatus.textContent =
+      "Refreshing router...";
+
+  }
+
+
+  try {
+
+    const result =
+      await new Promise(
+        resolve => {
+
+          chrome.runtime.sendMessage(
+
+            {
+              type:
+                "forceRefresh"
+            },
+
+            response => {
+
+              if (
+                chrome.runtime.lastError
+              ) {
+
+                console.error(
+                  chrome.runtime
+                    .lastError
+                    .message
+                );
+
+
+                resolve(
+                  null
+                );
+
+                return;
+              }
+
+
+              resolve(
+                response
+              );
+
+            }
+          );
+
+        }
+      );
+
+
+    if (result) {
+
+      updateSpeedTitle(
+        result
+      );
+
+
+      /*
+       * Also update Wi-Fi state if it
+       * is already available.
+       */
 
       if (
-        chrome.runtime.lastError
+        result.wifi
       ) {
 
-        console.log(
-          "forceRefresh:",
-          chrome.runtime.lastError.message
+        updateWifiUI(
+          result.wifi
         );
 
-        status.textContent =
-          "Waiting for router...";
-
-        // Get whatever data the background
-        // already has.
-        getStatus();
-
-        return;
       }
 
 
-      if (response) {
+      if (refreshStatus) {
 
-        updateFromBackground(
-          response
-        );
+        if (
+          result.status ===
+          "connected"
+        ) {
 
-      } else {
+          refreshStatus.textContent =
+            "Connected";
 
-        // Important:
-        // Don't leave the popup stuck on
-        // "Refreshing router..."
+        } else {
 
-        status.textContent =
-          "Waiting for router...";
+          refreshStatus.textContent =
+            result.status ||
+            "Router error";
 
-        getStatus();
+        }
+
       }
+
+    } else {
+
+      if (refreshStatus) {
+
+        refreshStatus.textContent =
+          "No response";
+
+      }
+
     }
-  );
+
+  } catch (error) {
+
+    console.error(
+      "Refresh error:",
+      error
+    );
+
+
+    if (refreshStatus) {
+
+      refreshStatus.textContent =
+        "Refresh failed";
+
+    }
+
+  } finally {
+
+    isRefreshing =
+      false;
+
+  }
+
 }
 
 
 // ============================================================
-// TITLE FORMAT CHANGE
+// MANUAL REFRESH BUTTON
 // ============================================================
 
-if (titleFormat) {
+if (refreshBtn) {
 
-  titleFormat.addEventListener(
-    "change",
-    () => {
+  refreshBtn.addEventListener(
 
-      selectedTitleFormat =
-        titleFormat.value;
-
-
-      localStorage.setItem(
-        "titleFormat",
-        selectedTitleFormat
-      );
-
-
-      updateTitle();
-    }
-  );
-}
-
-
-// ============================================================
-// REFRESH BUTTON
-// ============================================================
-
-if (refreshButton) {
-
-  refreshButton.addEventListener(
     "click",
-    forceRefresh
+
+    async () => {
+
+      refreshBtn.disabled =
+        true;
+
+
+      try {
+
+        await refreshRouter();
+
+
+        await loadWifiStatus();
+
+      } finally {
+
+        refreshBtn.disabled =
+          false;
+
+      }
+
+    }
+
   );
+
 }
 
 
 // ============================================================
-// INITIAL STATE
+// WIFI TOGGLE BUTTON
 // ============================================================
 
-updateTitle();
+if (wifiToggleBtn) {
+
+  wifiToggleBtn.addEventListener(
+
+    "click",
+
+    toggleWifiVisibility
+
+  );
+
+}
 
 
 // ============================================================
-// LOAD CURRENT DATA
+// INITIAL LOAD
 // ============================================================
 
-getStatus();
+async function initialize() {
+
+  /*
+   * Get router status immediately.
+   */
+
+  await refreshRouter();
+
+
+  /*
+   * Get actual Wi-Fi visibility
+   * directly from cmd 117 GET.
+   */
+
+  await loadWifiStatus();
+
+}
 
 
 // ============================================================
 // AUTO REFRESH
+//
+// Everything remains on 2 seconds.
 // ============================================================
 
-setInterval(
-  getStatus,
-  REFRESH_INTERVAL
-);
+refreshTimer =
+  setInterval(
+
+    () => {
+
+      refreshRouter();
+
+    },
+
+    REFRESH_INTERVAL
+
+  );
+
+
+initialize();
