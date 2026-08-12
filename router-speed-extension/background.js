@@ -2,6 +2,11 @@
 // ROUTER MONITOR - background.js
 // ============================================================
 
+
+// ============================================================
+// CONFIGURATION
+// ============================================================
+
 const ROUTER_URL =
   "http://192.168.8.1/cgi-bin/http.cgi";
 
@@ -19,6 +24,17 @@ const RETRY_DELAY =
 
 
 // ============================================================
+// ROUTER LOGIN
+// ============================================================
+
+const USERNAME =
+  "admin";
+
+const PASSWORD_HASH =
+  "21232f297a57a5a743894a0e4a801fc3";
+
+
+// ============================================================
 // SESSION
 // ============================================================
 
@@ -33,11 +49,14 @@ let sessionCookie =
 // STATE
 // ============================================================
 
-let isRefreshing = false;
+let isRefreshing =
+  false;
 
-let isWifiRequestRunning = false;
+let isWifiRequestRunning =
+  false;
 
-let isAuthenticating = false;
+let isAuthenticating =
+  false;
 
 let routerStatus =
   "connecting";
@@ -47,11 +66,14 @@ let routerStatus =
 // SPEED
 // ============================================================
 
-let previousRxBytes = null;
+let previousRxBytes =
+  null;
 
-let previousTxBytes = null;
+let previousTxBytes =
+  null;
 
-let previousTimestamp = null;
+let previousTimestamp =
+  null;
 
 let speed = {
   uploadKB: 0,
@@ -66,6 +88,7 @@ let speed = {
 // ============================================================
 
 let router = {
+
   rssi: "--",
 
   wanRxBytes: 0,
@@ -79,6 +102,7 @@ let router = {
 
   plmn: "",
   uptime: ""
+
 };
 
 
@@ -87,6 +111,7 @@ let router = {
 // ============================================================
 
 let wifiConfig = {
+
   ipMacId: "-1",
 
   macinfo_mac: "",
@@ -115,17 +140,13 @@ let wifiConfig = {
   method: "POST",
 
   secMode: "",
-
   secFile: "",
-
   cypher: "",
-
   wpa: "",
 
   debug: "0",
 
   groupRekey: "",
-
   gmkRekey: "",
 
   pskKey: "",
@@ -133,14 +154,13 @@ let wifiConfig = {
   chMode: "",
 
   pureg: "0",
-
   puren: "0",
 
   rateCtl: "auto",
 
   manRate: "",
-
   manRetries: ""
+
 };
 
 
@@ -152,7 +172,10 @@ function sleep(ms) {
 
   return new Promise(
     resolve =>
-      setTimeout(resolve, ms)
+      setTimeout(
+        resolve,
+        ms
+      )
   );
 
 }
@@ -193,24 +216,27 @@ function getHeaders() {
 
 
 // ============================================================
-// ROUTER REQUEST
+// RAW ROUTER REQUEST
+//
+// IMPORTANT:
+// This function does NOT automatically authenticate.
+// Authentication/retry is handled by routerRequestWithAuth().
 // ============================================================
 
-async function routerRequest(
-  payload
-) {
+async function routerRequest(payload) {
 
   console.log(
     "Router request:",
     payload
   );
 
-
   const response =
     await fetch(
       ROUTER_URL,
       {
-        method: "POST",
+
+        method:
+          "POST",
 
         headers:
           getHeaders(),
@@ -225,6 +251,7 @@ async function routerRequest(
           JSON.stringify(
             payload
           )
+
       }
     );
 
@@ -266,9 +293,7 @@ async function routerRequest(
 // TRY JSON
 // ============================================================
 
-function tryParseJSON(
-  text
-) {
+function tryParseJSON(text) {
 
   try {
 
@@ -289,9 +314,7 @@ function tryParseJSON(
 // SESSION INVALID CHECK
 // ============================================================
 
-function isSessionInvalid(
-  text
-) {
+function isSessionInvalid(text) {
 
   if (!text) {
 
@@ -323,14 +346,18 @@ function isSessionInvalid(
 
     "not login",
 
-    "not logged"
+    "not logged",
+
+    "no_auth"
 
   ];
 
 
   return invalidWords.some(
     word =>
-      lower.includes(word)
+      lower.includes(
+        word
+      )
   );
 
 }
@@ -340,9 +367,7 @@ function isSessionInvalid(
 // FIND SESSION ID
 // ============================================================
 
-function findSessionId(
-  text
-) {
+function findSessionId(text) {
 
   const json =
     tryParseJSON(
@@ -379,6 +404,7 @@ function findSessionId(
     if (
       typeof json[key] ===
         "string" &&
+
       json[key].length > 0
     ) {
 
@@ -398,9 +424,7 @@ function findSessionId(
 // FIND SESSION COOKIE
 // ============================================================
 
-function findSessionCookie(
-  text
-) {
+function findSessionCookie(text) {
 
   const json =
     tryParseJSON(
@@ -435,6 +459,7 @@ function findSessionCookie(
     if (
       typeof json[key] ===
         "string" &&
+
       json[key].length > 0
     ) {
 
@@ -452,13 +477,50 @@ function findSessionCookie(
 
 // ============================================================
 // AUTHENTICATION
+//
+// CMD 100
+//
+// This is the important change.
+//
+// username = admin
+// passwd   = MD5 password hash
 // ============================================================
 
 async function authenticate() {
 
-  if (
-    isAuthenticating
-  ) {
+  if (isAuthenticating) {
+
+    console.log(
+      "Authentication already running"
+    );
+
+
+    /*
+     * Wait for the existing authentication.
+     */
+
+    for (
+      let i = 0;
+      i < 300;
+      i++
+    ) {
+
+      if (
+        !isAuthenticating
+      ) {
+
+        return (
+          routerStatus ===
+          "connected"
+        );
+
+      }
+
+
+      await sleep(100);
+
+    }
+
 
     return false;
 
@@ -487,18 +549,39 @@ async function authenticate() {
 
       try {
 
+        /*
+         * ==================================================
+         * CMD 100 LOGIN
+         * ==================================================
+         */
+
         const payload = {
 
-          cmd: 100,
+          cmd:
+            100,
 
-          method: "POST",
-
-          language: "EN",
+          method:
+            "POST",
 
           sessionId:
-            sessionId
+            sessionId,
+
+          username:
+            USERNAME,
+
+          passwd:
+            PASSWORD_HASH,
+
+          language:
+            "EN"
 
         };
+
+
+        console.log(
+          "AUTH PAYLOAD:",
+          payload
+        );
 
 
         const response =
@@ -507,20 +590,50 @@ async function authenticate() {
           );
 
 
+        console.log(
+          "AUTH RESPONSE:",
+          response
+        );
+
+
+        /*
+         * --------------------------------------------------
+         * Parse authentication response
+         * --------------------------------------------------
+         */
+
+        const json =
+          tryParseJSON(
+            response
+          );
+
+
+        /*
+         * --------------------------------------------------
+         * Check authentication failure
+         * --------------------------------------------------
+         */
+
         if (
-          !isSessionInvalid(
+          isSessionInvalid(
             response
           )
         ) {
 
+          console.warn(
+            "Authentication response indicates failure"
+          );
+
+        } else {
+
+          /*
+           * ------------------------------------------------
+           * Find new session ID
+           * ------------------------------------------------
+           */
+
           const newSessionId =
             findSessionId(
-              response
-            );
-
-
-          const newCookie =
-            findSessionCookie(
               response
             );
 
@@ -529,15 +642,37 @@ async function authenticate() {
             newSessionId
           ) {
 
+            console.log(
+              "New session ID received"
+            );
+
+
             sessionId =
               newSessionId;
 
           }
 
 
+          /*
+           * ------------------------------------------------
+           * Find session cookie
+           * ------------------------------------------------
+           */
+
+          const newCookie =
+            findSessionCookie(
+              response
+            );
+
+
           if (
             newCookie
           ) {
+
+            console.log(
+              "New session cookie received"
+            );
+
 
             sessionCookie =
               newCookie;
@@ -545,11 +680,39 @@ async function authenticate() {
           }
 
 
-          routerStatus =
-            "connected";
+          /*
+           * ------------------------------------------------
+           * Some routers return success:true
+           * without returning a new session ID.
+           *
+           * That is still considered authenticated.
+           * ------------------------------------------------
+           */
+
+          if (
+            json &&
+            json.success === false
+          ) {
+
+            console.warn(
+              "Authentication returned success:false",
+              json
+            );
+
+          } else {
+
+            routerStatus =
+              "connected";
 
 
-          return true;
+            console.log(
+              "Authentication successful"
+            );
+
+
+            return true;
+
+          }
 
         }
 
@@ -562,6 +725,12 @@ async function authenticate() {
 
       }
 
+
+      /*
+       * ----------------------------------------------------
+       * Wait before next authentication attempt
+       * ----------------------------------------------------
+       */
 
       if (
         attempt <
@@ -597,6 +766,168 @@ async function authenticate() {
 
 
 // ============================================================
+// REQUEST WITH AUTOMATIC AUTHENTICATION
+//
+// This is the main protection against:
+//
+// {
+//   "success": false,
+//   "cmd": 117,
+//   "message": "NO_AUTH"
+// }
+//
+// Flow:
+//
+// REQUEST
+//    ↓
+// NO_AUTH
+//    ↓
+// authenticate()
+//    ↓
+// REQUEST AGAIN
+// ============================================================
+
+async function routerRequestWithAuth(
+  payload,
+  retryAfterAuth = true
+) {
+
+  let response;
+
+
+  try {
+
+    response =
+      await routerRequest(
+        payload
+      );
+
+  } catch (error) {
+
+    throw error;
+
+  }
+
+
+  /*
+   * --------------------------------------------------------
+   * Check for NO_AUTH / expired session
+   * --------------------------------------------------------
+   */
+
+  if (
+    !isSessionInvalid(
+      response
+    )
+  ) {
+
+    return response;
+
+  }
+
+
+  console.warn(
+    "Router authentication required:",
+    response
+  );
+
+
+  /*
+   * --------------------------------------------------------
+   * Do not authenticate recursively.
+   * --------------------------------------------------------
+   */
+
+  if (
+    !retryAfterAuth
+  ) {
+
+    throw new Error(
+      "SESSION_EXPIRED"
+    );
+
+  }
+
+
+  /*
+   * --------------------------------------------------------
+   * Authenticate
+   * --------------------------------------------------------
+   */
+
+  const authenticated =
+    await authenticate();
+
+
+  if (
+    !authenticated
+  ) {
+
+    throw new Error(
+      "AUTHENTICATION_FAILED"
+    );
+
+  }
+
+
+  /*
+   * --------------------------------------------------------
+   * Update session ID
+   * --------------------------------------------------------
+   */
+
+  payload.sessionId =
+    sessionId;
+
+
+  /*
+   * --------------------------------------------------------
+   * Retry original request
+   * --------------------------------------------------------
+   */
+
+  console.log(
+    "Retrying router request after authentication"
+  );
+
+
+  response =
+    await routerRequest(
+      payload
+    );
+
+
+  /*
+   * --------------------------------------------------------
+   * Check if authentication failed again
+   * --------------------------------------------------------
+   */
+
+  if (
+    isSessionInvalid(
+      response
+    )
+  ) {
+
+    console.error(
+      "Request still unauthorized after re-authentication:",
+      response
+    );
+
+
+    throw new Error(
+      "SESSION_EXPIRED"
+    );
+
+  }
+
+
+  return response;
+
+}
+
+
+// ============================================================
 // GET ROUTER INFORMATION
 // CMD 0
 // ============================================================
@@ -605,11 +936,14 @@ async function getRouterInformation() {
 
   const payload = {
 
-    cmd: 0,
+    cmd:
+      0,
 
-    method: "GET",
+    method:
+      "GET",
 
-    language: "EN",
+    language:
+      "EN",
 
     sessionId:
       sessionId
@@ -618,22 +952,9 @@ async function getRouterInformation() {
 
 
   const response =
-    await routerRequest(
+    await routerRequestWithAuth(
       payload
     );
-
-
-  if (
-    isSessionInvalid(
-      response
-    )
-  ) {
-
-    throw new Error(
-      "SESSION_EXPIRED"
-    );
-
-  }
 
 
   const data =
@@ -795,6 +1116,10 @@ function calculateSpeed() {
     txBytes -
     previousTxBytes;
 
+
+  /*
+   * Router reboot / counter reset
+   */
 
   if (
     rxDifference < 0
@@ -960,13 +1285,6 @@ function updateBadge() {
   }
 
 
-  /*
-   * RSRP/RSSI threshold
-   *
-   * <= 105 = green
-   * > 105  = red
-   */
-
   const signal =
     Math.abs(
       Math.round(
@@ -1044,33 +1362,20 @@ function setErrorBadge() {
 // GET WIFI VISIBILITY
 //
 // CMD 117 GET
-//
-// Payload:
-//
-// {
-//   cmd: 117,
-//   method: "GET",
-//   language: "EN",
-//   sessionId: "..."
-// }
-//
-// Response is PLAIN TEXT.
-//
-// values[4] = macinfo_broadcast
-//
-// 0 = Visible
-// 1 = Hidden
 // ============================================================
 
 async function getWifiVisibility() {
 
   const payload = {
 
-    cmd: 117,
+    cmd:
+      117,
 
-    method: "GET",
+    method:
+      "GET",
 
-    language: "EN",
+    language:
+      "EN",
 
     sessionId:
       sessionId
@@ -1084,23 +1389,14 @@ async function getWifiVisibility() {
   );
 
 
+  /*
+   * Automatically handles NO_AUTH.
+   */
+
   const response =
-    await routerRequest(
+    await routerRequestWithAuth(
       payload
     );
-
-
-  if (
-    isSessionInvalid(
-      response
-    )
-  ) {
-
-    throw new Error(
-      "SESSION_EXPIRED"
-    );
-
-  }
 
 
   const result =
@@ -1144,28 +1440,51 @@ function parseWifiResponse(
 
 
   /*
-   * Router response example:
-   *
-   * D8:D8:66:1D:41:EE,
-   * 192.168.8.1,
-   * yes,
-   * office,
-   * 0,
-   * auto,
-   * 23,
-   * WPA,
-   * 3,
-   * PSK,
-   * 11111111,
-   * CCMP,
-   * 11NGHT20,
-   * 0,
-   * 0,
-   * m11ng,
-   * auto,
-   * ,
+   * Check if router unexpectedly returned JSON.
    */
 
+  const json =
+    tryParseJSON(
+      responseText
+    );
+
+
+  if (
+    json &&
+    json.success === false
+  ) {
+
+    throw new Error(
+      json.message ||
+      "Wi-Fi request failed"
+    );
+
+  }
+
+
+  /*
+   * Expected response:
+   *
+   * 0 MAC
+   * 1 IP
+   * 2 wifiOpen
+   * 3 SSID
+   * 4 broadcast
+   * 5 channel
+   * 6 txPower
+   * 7 security
+   * 8 WPA
+   * 9 PSK
+   * 10 password
+   * 11 cipher
+   * 12 channel mode
+   * 13 pureg
+   * 14 puren
+   * 15 wifiWorkMode
+   * 16 rateCtl
+   * 17 manRate
+   * 18 manRetries
+   */
 
   const values =
     responseText
@@ -1180,31 +1499,6 @@ function parseWifiResponse(
     "CMD 117 parsed values:",
     values
   );
-
-
-  /*
-   * IMPORTANT:
-   *
-   * index 0  MAC
-   * index 1  IP
-   * index 2  wifiOpen
-   * index 3  SSID
-   * index 4  broadcast
-   * index 5  channel
-   * index 6  txPower
-   * index 7  security
-   * index 8  WPA
-   * index 9  PSK
-   * index 10 password
-   * index 11 cipher
-   * index 12 channel mode
-   * index 13 pureg
-   * index 14 puren
-   * index 15 wifiWorkMode
-   * index 16 rateCtl
-   * index 17 manRate
-   * index 18 manRetries
-   */
 
 
   const broadcast =
@@ -1231,7 +1525,7 @@ function parseWifiResponse(
 
 
   /*
-   * Save CURRENT router configuration.
+   * Save current router configuration.
    */
 
   wifiConfig.ipMacId =
@@ -1375,9 +1669,8 @@ function parseWifiResponse(
 // SET WIFI VISIBILITY
 //
 // broadcast:
-//
-// "0" = visible
-// "1" = hidden
+// 0 = visible
+// 1 = hidden
 // ============================================================
 
 async function setWifiVisibility(
@@ -1442,59 +1735,14 @@ async function setWifiVisibility(
      * STEP 1
      *
      * GET CURRENT WIFI CONFIGURATION
+     *
+     * routerRequestWithAuth()
+     * automatically handles NO_AUTH.
      * ========================================================
      */
 
-    let current;
-
-
-    try {
-
-      current =
-        await getWifiVisibility();
-
-    } catch (error) {
-
-      if (
-        error.message !==
-        "SESSION_EXPIRED"
-      ) {
-
-        throw error;
-
-      }
-
-
-      console.log(
-        "Wi-Fi GET session expired"
-      );
-
-
-      const authenticated =
-        await authenticate();
-
-
-      if (
-        !authenticated
-      ) {
-
-        return {
-
-          success:
-            false,
-
-          message:
-            "Authentication failed"
-
-        };
-
-      }
-
-
-      current =
-        await getWifiVisibility();
-
-    }
+    let current =
+      await getWifiVisibility();
 
 
     console.log(
@@ -1507,7 +1755,7 @@ async function setWifiVisibility(
      * ========================================================
      * STEP 2
      *
-     * UPDATE ONLY BROADCAST
+     * Update ONLY broadcast
      * ========================================================
      */
 
@@ -1519,15 +1767,11 @@ async function setWifiVisibility(
      * ========================================================
      * STEP 3
      *
-     * BUILD EXACT CMD 117 POST
+     * BUILD CMD 117 POST DATA
      * ========================================================
      */
 
     const wifiData = {
-
-      /*
-       * Basic information
-       */
 
       ipMacId:
         "-1",
@@ -1563,17 +1807,11 @@ async function setWifiVisibility(
         wifiConfig.macinfo_pwd,
 
       /*
-       * ======================================================
-       * THIS IS THE IMPORTANT FIELD
-       * ======================================================
+       * IMPORTANT
        */
 
       macinfo_broadcast:
         broadcast,
-
-      /*
-       * Wi-Fi command
-       */
 
       cmd:
         2,
@@ -1682,92 +1920,21 @@ async function setWifiVisibility(
     /*
      * ========================================================
      * SEND POST
+     *
+     * Automatically re-authenticates if NO_AUTH.
      * ========================================================
      */
 
-    let response;
-
-
-    try {
-
-      response =
-        await routerRequest(
-          payload
-        );
-
-    } catch (error) {
-
-      console.error(
-        "Wi-Fi POST request error:",
-        error
+    const response =
+      await routerRequestWithAuth(
+        payload
       );
-
-
-      throw error;
-
-    }
 
 
     console.log(
       "CMD 117 POST RESPONSE:",
       response
     );
-
-
-    /*
-     * ========================================================
-     * SESSION EXPIRED?
-     * ========================================================
-     */
-
-    if (
-      isSessionInvalid(
-        response
-      )
-    ) {
-
-      console.log(
-        "POST session expired"
-      );
-
-
-      const authenticated =
-        await authenticate();
-
-
-      if (
-        !authenticated
-      ) {
-
-        return {
-
-          success:
-            false,
-
-          message:
-            "Authentication failed"
-
-        };
-
-      }
-
-
-      payload.sessionId =
-        sessionId;
-
-
-      response =
-        await routerRequest(
-          payload
-        );
-
-
-      console.log(
-        "CMD 117 POST RETRY RESPONSE:",
-        response
-      );
-
-    }
 
 
     /*
@@ -1787,52 +1954,8 @@ async function setWifiVisibility(
      * ========================================================
      */
 
-    let verified;
-
-
-    try {
-
-      verified =
-        await getWifiVisibility();
-
-    } catch (error) {
-
-      if (
-        error.message ===
-        "SESSION_EXPIRED"
-      ) {
-
-        const authenticated =
-          await authenticate();
-
-
-        if (
-          !authenticated
-        ) {
-
-          return {
-
-            success:
-              false,
-
-            message:
-              "Authentication failed after POST"
-
-          };
-
-        }
-
-
-        verified =
-          await getWifiVisibility();
-
-      } else {
-
-        throw error;
-
-      }
-
-    }
+    const verified =
+      await getWifiVisibility();
 
 
     console.log(
@@ -2032,44 +2155,23 @@ async function refreshRouter() {
     isRefreshing ||
     isAuthenticating
   ) {
-
     return;
-
   }
 
-
-  isRefreshing =
-    true;
-
+  isRefreshing = true;
 
   try {
 
     try {
 
+      // =====================================================
+      // ONLY REFRESH ROUTER INFORMATION
+      // DO NOT CHECK WIFI VISIBILITY HERE
+      // =====================================================
+
       await getRouterInformation();
 
-
-      /*
-       * Also keep Wi-Fi visibility synchronized.
-       */
-
-      try {
-
-        await getWifiVisibility();
-
-      } catch (wifiError) {
-
-        console.warn(
-          "Wi-Fi visibility check failed:",
-          wifiError
-        );
-
-      }
-
-
-      routerStatus =
-        "connected";
-
+      routerStatus = "connected";
 
     } catch (error) {
 
@@ -2078,7 +2180,6 @@ async function refreshRouter() {
         error
       );
 
-
       if (
         error.message ===
         "SESSION_EXPIRED"
@@ -2086,33 +2187,14 @@ async function refreshRouter() {
 
         resetSpeed();
 
-
         const authenticated =
           await authenticate();
 
-
-        if (
-          authenticated
-        ) {
+        if (authenticated) {
 
           try {
 
             await getRouterInformation();
-
-
-            try {
-
-              await getWifiVisibility();
-
-            } catch (wifiError) {
-
-              console.warn(
-                "Wi-Fi visibility retry failed:",
-                wifiError
-              );
-
-            }
-
 
             routerStatus =
               "connected";
@@ -2124,10 +2206,8 @@ async function refreshRouter() {
               retryError
             );
 
-
             routerStatus =
               "server_error";
-
 
             clearBadge();
 
@@ -2138,7 +2218,6 @@ async function refreshRouter() {
           routerStatus =
             "authentication_failed";
 
-
           clearBadge();
 
         }
@@ -2147,12 +2226,6 @@ async function refreshRouter() {
 
         routerStatus =
           "server_error";
-
-
-        /*
-         * Remove extension badge when
-         * server/router is unavailable.
-         */
 
         clearBadge();
 
@@ -2269,7 +2342,7 @@ chrome.runtime.onMessage.addListener(
         )
 
         .catch(
-          async error => {
+          error => {
 
             console.error(
               "Wi-Fi GET error:",
@@ -2277,72 +2350,16 @@ chrome.runtime.onMessage.addListener(
             );
 
 
-            if (
-              error.message ===
-              "SESSION_EXPIRED"
-            ) {
+            sendResponse({
 
-              const authenticated =
-                await authenticate();
+              success:
+                false,
 
+              message:
+                error.message ||
+                "Wi-Fi GET failed"
 
-              if (
-                authenticated
-              ) {
-
-                try {
-
-                  const result =
-                    await getWifiVisibility();
-
-
-                  sendResponse(
-                    result
-                  );
-
-                } catch (
-                  retryError
-                ) {
-
-                  sendResponse({
-
-                    success:
-                      false,
-
-                    message:
-                      retryError.message
-
-                  });
-
-                }
-
-              } else {
-
-                sendResponse({
-
-                  success:
-                    false,
-
-                  message:
-                    "Authentication failed"
-
-                });
-
-              }
-
-            } else {
-
-              sendResponse({
-
-                success:
-                  false,
-
-                message:
-                  error.message
-
-              });
-
-            }
+            });
 
           }
         );
@@ -2415,7 +2432,8 @@ chrome.runtime.onMessage.addListener(
                 false,
 
               message:
-                error.message
+                error.message ||
+                "Wi-Fi POST failed"
 
             });
 
