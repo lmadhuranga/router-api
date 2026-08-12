@@ -22,23 +22,114 @@
   <div class="popup-container">
 
     <!-- =====================================================
-         TOP BAR
+         SPEED / SIGNAL
          ===================================================== -->
 
-    <div class="top-bar">
+    <div class="speed-container">
+
+      <!-- UPLOAD -->
+
+      <div class="speed-item">
+
+        <div class="speed-value upload-value">
+          ↑
+          <span id="uploadSpeed">0</span>
+          KB
+        </div>
+
+        <div class="speed-label">
+          Upload
+        </div>
+
+      </div>
+
+
+      <!-- DOWNLOAD -->
+
+      <div class="speed-item">
+
+        <div class="speed-value download-value">
+          ↓
+          <span id="downloadSpeed">0</span>
+          KB
+        </div>
+
+        <div class="speed-label">
+          Download
+        </div>
+
+      </div>
+
+
+      <!-- SIGNAL -->
 
       <div
-        id="titleSpeed"
-        class="title-speed"
+        class="speed-item signal"
+        id="signalCard"
       >
-        ↑ 0 KB | ↓ 0 KB | -- dBm
+
+        <div class="speed-value">
+
+          <span id="signalValue">--</span>
+          dBm
+
+        </div>
+
+        <div class="speed-label">
+          Signal
+        </div>
+
       </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ALL CONTROLS - ONE ROW
+         ===================================================== -->
+
+    <div class="controls-row">
+
+      <!-- WIFI VISIBILITY -->
+
+      <button
+        id="wifiToggleBtn"
+        class="control-btn wifi-control-btn"
+        type="button"
+      >
+        Checking...
+      </button>
+
+
+      <!-- 500ms -->
+
+      <button
+        id="refresh500Btn"
+        class="control-btn refresh-speed-btn"
+        type="button"
+      >
+        500ms
+      </button>
+
+
+      <!-- 1000ms -->
+
+      <button
+        id="refresh1000Btn"
+        class="control-btn refresh-speed-btn active"
+        type="button"
+      >
+        1000ms
+      </button>
+
+
+      <!-- REFRESH -->
 
       <button
         id="refreshBtn"
-        class="refresh-btn"
+        class="control-btn refresh-btn"
         type="button"
-        title="Refresh"
+        title="Refresh now"
       >
         ↻
       </button>
@@ -47,7 +138,7 @@
 
 
     <!-- =====================================================
-         REFRESH STATUS
+         CONNECTION STATUS
          ===================================================== -->
 
     <div
@@ -59,61 +150,26 @@
 
 
     <!-- =====================================================
-         WIFI VISIBILITY
+         WIFI STATUS
          ===================================================== -->
 
-    <div class="wifi-card">
+    <div class="wifi-status-row">
 
-      <div class="wifi-header">
+      <span class="wifi-title">
+        Wi-Fi:
+      </span>
 
-        <div>
-
-          <div class="wifi-title">
-            Wi-Fi Visibility
-          </div>
-
-          <div
-            id="wifiStatus"
-            class="wifi-status"
-          >
-            Checking...
-          </div>
-
-        </div>
-
-        <div class="wifi-icon">
-          Wi-Fi
-        </div>
-
-      </div>
-
-
-      <!-- ===================================================
-           SINGLE TOGGLE BUTTON
-
-           Visible:
-             Button = Hide Wi-Fi
-
-           Hidden:
-             Button = Show Wi-Fi
-           =================================================== -->
-
-      <button
-        id="wifiToggleBtn"
-        class="wifi-toggle-btn"
-        type="button"
+      <span
+        id="wifiStatus"
+        class="wifi-status"
       >
         Checking...
-      </button>
+      </span>
 
     </div>
 
   </div>
 
-
-  <!-- =======================================================
-       POPUP JAVASCRIPT
-       ======================================================= -->
 
   <script src="popup.js"></script>
 
