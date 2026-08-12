@@ -1,82 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Router Monitor</title>
 
-  <link
-    rel="stylesheet"
-    href="popup.css"
-  >
+  <link rel="stylesheet" href="popup.css" />
 </head>
 
 <body>
 
-  <div class="popup-container">
+  <div class="popup">
 
-    <!-- =====================================================
-         SPEED / SIGNAL
-         ===================================================== -->
+    <!-- Header -->
+    <div class="header">
+      <div class="title">
+        Router Monitor
+      </div>
 
+      <div id="statusDot" class="status-dot connecting"></div>
+    </div>
+
+
+    <!-- Signal -->
+    <div class="signal-section">
+
+      <div id="signalValue" class="signal-value">
+        -- dBm
+      </div>
+
+      <div class="signal-label">
+        Signal
+      </div>
+
+    </div>
+
+
+    <!-- Speed -->
     <div class="speed-container">
 
-      <!-- UPLOAD -->
+      <!-- Upload -->
+      <div class="speed-card">
 
-      <div class="speed-item">
-
-        <div class="speed-value upload-value">
+        <div class="speed-icon upload">
           ↑
-          <span id="uploadSpeed">0</span>
-          KB
         </div>
 
-        <div class="speed-label">
-          Upload
+        <div class="speed-info">
+
+          <div id="uploadSpeed" class="speed-value">
+            0 KB
+          </div>
+
+          <div class="speed-label">
+            Upload
+          </div>
+
         </div>
 
       </div>
 
 
-      <!-- DOWNLOAD -->
+      <!-- Download -->
+      <div class="speed-card">
 
-      <div class="speed-item">
-
-        <div class="speed-value download-value">
+        <div class="speed-icon download">
           ↓
-          <span id="downloadSpeed">0</span>
-          KB
         </div>
 
-        <div class="speed-label">
-          Download
-        </div>
+        <div class="speed-info">
 
-      </div>
+          <div id="downloadSpeed" class="speed-value">
+            0 KB
+          </div>
 
+          <div class="speed-label">
+            Download
+          </div>
 
-      <!-- SIGNAL -->
-
-      <div
-        class="speed-item signal"
-        id="signalCard"
-      >
-
-        <div class="speed-value">
-
-          <span id="signalValue">--</span>
-          dBm
-
-        </div>
-
-        <div class="speed-label">
-          Signal
         </div>
 
       </div>
@@ -84,89 +86,72 @@
     </div>
 
 
-    <!-- =====================================================
-         ALL CONTROLS - ONE ROW
-         ===================================================== -->
+    <!-- Wi-Fi -->
+    <div class="wifi-section">
 
-    <div class="controls-row">
+      <div class="wifi-header">
 
-      <!-- WIFI VISIBILITY -->
+        <span class="wifi-title">
+          Wi-Fi Visibility
+        </span>
+
+        <span id="wifiStatus" class="wifi-status">
+          Checking...
+        </span>
+
+      </div>
+
+
+      <div class="wifi-controls">
+
+        <button
+          id="wifiToggleBtn"
+          class="wifi-toggle"
+          type="button"
+        >
+          Checking...
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <!-- Refresh Controls -->
+    <div class="refresh-section">
 
       <button
-        id="wifiToggleBtn"
-        class="control-btn wifi-control-btn"
+        id="refreshBtn"
+        class="refresh-btn"
         type="button"
       >
-        Checking...
+        Refresh
       </button>
-
-
-      <!-- 500ms -->
 
       <button
         id="refresh500Btn"
-        class="control-btn refresh-speed-btn"
+        class="interval-btn"
         type="button"
       >
         500ms
       </button>
 
-
-      <!-- 1000ms -->
-
       <button
         id="refresh1000Btn"
-        class="control-btn refresh-speed-btn active"
+        class="interval-btn active"
         type="button"
       >
         1000ms
       </button>
 
-
-      <!-- REFRESH -->
-
-      <button
-        id="refreshBtn"
-        class="control-btn refresh-btn"
-        type="button"
-        title="Refresh now"
-      >
-        ↻
-      </button>
-
     </div>
 
 
-    <!-- =====================================================
-         CONNECTION STATUS
-         ===================================================== -->
-
+    <!-- Router Status -->
     <div
-      id="refreshStatus"
-      class="refresh-status"
-    >
-      Connecting...
-    </div>
-
-
-    <!-- =====================================================
-         WIFI STATUS
-         ===================================================== -->
-
-    <div class="wifi-status-row">
-
-      <span class="wifi-title">
-        Wi-Fi:
-      </span>
-
-      <span
-        id="wifiStatus"
-        class="wifi-status"
-      >
-        Checking...
-      </span>
-
-    </div>
+      id="errorMessage"
+      class="error-message hidden"
+    ></div>
 
   </div>
 
@@ -174,5 +159,4 @@
   <script src="popup.js"></script>
 
 </body>
-
 </html>

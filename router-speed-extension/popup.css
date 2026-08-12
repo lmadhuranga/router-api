@@ -1,25 +1,15 @@
-/* ============================================================
-   POPUP.CSS
-   ============================================================ */
-
 * {
   box-sizing: border-box;
 }
 
-
-html,
 body {
-
   margin: 0;
-
   padding: 0;
 
   width: 360px;
-
-  min-height: 190px;
+  min-height: 420px;
 
   background: #0f172a;
-
   color: #e2e8f0;
 
   font-family:
@@ -27,233 +17,319 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
-    Helvetica,
     Arial,
     sans-serif;
-
 }
 
-
-body {
-  overflow-x: hidden;
-}
-
-
-/* ============================================================
-   MAIN
-   ============================================================ */
-
-.popup-container {
-
+.popup {
   width: 100%;
+  padding: 16px;
+}
 
-  min-height: 190px;
+/* ============================================================
+   HEADER
+   ============================================================ */
 
-  padding: 12px;
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-  background:
-    linear-gradient(
-      180deg,
-      #111827 0%,
-      #0f172a 100%
-    );
+  margin-bottom: 18px;
+}
 
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+}
+
+.status-dot.connected {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.35);
+}
+
+.status-dot.connecting {
+  background: #facc15;
+}
+
+.status-dot.error {
+  background: #f87171;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
 }
 
 
 /* ============================================================
-   SPEED CONTAINER
+   SIGNAL
    ============================================================ */
 
-.speed-container {
-
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, 1fr);
-
-  gap: 6px;
-
-  width: 100%;
-
-  margin-bottom: 10px;
-
-}
-
-
-/* ============================================================
-   SPEED ITEM
-   ============================================================ */
-
-.speed-item {
-
-  min-width: 0;
-
-  padding: 10px 4px;
-
-  border: 1px solid #263449;
-
-  border-radius: 9px;
-
-  background: #172033;
-
+.signal-section {
   text-align: center;
 
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+  padding: 16px 0 20px;
 
+  border-bottom: 1px solid #1e293b;
 }
 
-
-/* ============================================================
-   SPEED VALUE
-   ============================================================ */
-
-.speed-value {
-
-  color: #f8fafc;
-
-  font-size: 12px;
+.signal-value {
+  font-size: 32px;
+  line-height: 1;
 
   font-weight: 700;
 
-  line-height: 16px;
+  margin-bottom: 8px;
 
-  white-space: nowrap;
+  transition:
+    color 0.2s ease;
+}
 
+/*
+  RSRP logic:
+  <= 105  = good
+  > 105   = weak
+*/
+
+.signal-good {
+  color: #4ade80;
+}
+
+.signal-weak {
+  color: #f87171;
+}
+
+.signal-label {
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 
 /* ============================================================
-   SPEED LABEL
+   SPEED
    ============================================================ */
 
-.speed-label {
+.speed-container {
+  display: flex;
 
+  gap: 10px;
+
+  margin-top: 14px;
+}
+
+.speed-card {
+  flex: 1;
+
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  padding: 12px;
+
+  background: #111c2e;
+
+  border: 1px solid #1e293b;
+
+  border-radius: 10px;
+}
+
+.speed-icon {
+  width: 32px;
+  height: 32px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  margin-right: 9px;
+}
+
+.speed-icon.upload {
+  color: #93c5fd;
+  background: #172554;
+}
+
+.speed-icon.download {
+  color: #86efac;
+  background: #14532d;
+}
+
+.speed-info {
+  min-width: 0;
+}
+
+.speed-value {
+  font-size: 15px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.speed-label {
   margin-top: 3px;
 
   color: #64748b;
 
-  font-size: 9px;
-
-  font-weight: 600;
+  font-size: 10px;
 
   text-transform: uppercase;
-
-  letter-spacing: 0.3px;
-
+  letter-spacing: 0.6px;
 }
 
 
 /* ============================================================
-   SIGNAL GOOD
-   <= 105
+   WIFI
    ============================================================ */
 
-.speed-item.signal-good {
+.wifi-section {
+  margin-top: 14px;
 
-  border-color: #166534;
+  padding: 13px;
 
-  background: #10251a;
+  background: #111c2e;
 
+  border: 1px solid #1e293b;
+
+  border-radius: 10px;
 }
 
+.wifi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-.speed-item.signal-good .speed-value {
-
-  color: #86efac;
-
+  margin-bottom: 10px;
 }
 
+.wifi-title {
+  font-size: 13px;
 
-.speed-item.signal-good .speed-label {
+  font-weight: 600;
+}
 
+.wifi-status {
+  font-size: 11px;
+
+  font-weight: 600;
+}
+
+.wifi-visible {
   color: #4ade80;
-
 }
 
-
-/* ============================================================
-   SIGNAL BAD
-   > 105
-   ============================================================ */
-
-.speed-item.signal-bad {
-
-  border-color: #7f1d1d;
-
-  background: #211416;
-
+.wifi-hidden {
+  color: #fbbf24;
 }
 
-
-.speed-item.signal-bad .speed-value {
-
-  color: #fca5a5;
-
-}
-
-
-.speed-item.signal-bad .speed-label {
-
+.wifi-error {
   color: #f87171;
-
 }
 
 
 /* ============================================================
-   SIGNAL UNKNOWN
+   WIFI BUTTON
    ============================================================ */
 
-.speed-item.signal-unknown {
+.wifi-controls {
+  width: 100%;
+}
 
-  border-color: #334155;
+.wifi-toggle {
+  width: 100%;
 
-  background: #172033;
+  height: 38px;
 
+  border: 0;
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  color: #e2e8f0;
+
+  background: #1e293b;
+
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    opacity 0.15s ease;
+}
+
+.wifi-toggle:hover {
+  background: #334155;
+}
+
+.wifi-toggle:active {
+  transform: scale(0.98);
+}
+
+.wifi-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
-.speed-item.signal-unknown .speed-value {
+/* Visible state */
 
-  color: #94a3b8;
+.wifi-toggle.show-wifi {
+  background: #14532d;
+  color: #bbf7d0;
+}
 
+.wifi-toggle.show-wifi:hover {
+  background: #166534;
 }
 
 
-.speed-item.signal-unknown .speed-label {
+/* Hidden state */
 
-  color: #64748b;
+.wifi-toggle.hide-wifi {
+  background: #3f3f1f;
+  color: #fef08a;
+}
 
+.wifi-toggle.hide-wifi:hover {
+  background: #52521f;
 }
 
 
 /* ============================================================
-   ALL CONTROLS - ONE ROW
+   REFRESH BUTTONS
    ============================================================ */
 
-.controls-row {
-
+.refresh-section {
   display: flex;
 
   align-items: center;
 
-  gap: 5px;
+  gap: 6px;
 
-  width: 100%;
-
-  margin-bottom: 7px;
-
+  margin-top: 14px;
 }
 
-
-/* ============================================================
-   ALL CONTROL BUTTONS
-   ============================================================ */
-
-.control-btn {
-
+.refresh-btn,
+.interval-btn {
   height: 34px;
 
   border: 1px solid #334155;
@@ -262,236 +338,86 @@ body {
 
   background: #172033;
 
-  color: #94a3b8;
-
-  font-size: 10px;
-
-  font-weight: 600;
+  color: #cbd5e1;
 
   cursor: pointer;
+
+  font-size: 11px;
+  font-weight: 600;
 
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
-
+    transform 0.1s ease;
 }
 
-
-.control-btn:hover {
-
-  background: #1e293b;
-
-  border-color: #475569;
-
-  color: #e2e8f0;
-
-}
-
-
-.control-btn:active {
-
-  transform:
-    scale(0.96);
-
-}
-
-
-.control-btn:disabled {
-
-  opacity: 0.5;
-
-  cursor: wait;
-
-}
-
-
-/* ============================================================
-   WIFI BUTTON
-   ============================================================ */
-
-.wifi-control-btn {
-
+.refresh-btn {
   flex: 1;
+}
 
-  min-width: 0;
+.interval-btn {
+  width: 62px;
+}
 
-  padding: 0 8px;
+.refresh-btn:hover,
+.interval-btn:hover {
+  background: #243047;
+  border-color: #475569;
+}
 
-  white-space: nowrap;
+.refresh-btn:active,
+.interval-btn:active {
+  transform: scale(0.97);
+}
 
-  overflow: hidden;
-
-  text-overflow: ellipsis;
-
+.interval-btn.active {
+  background: #334155;
+  border-color: #64748b;
+  color: #f8fafc;
 }
 
 
 /* ============================================================
-   WIFI VISIBLE
+   ERROR
    ============================================================ */
 
-.wifi-control-btn.wifi-visible {
+.error-message {
+  margin-top: 10px;
+
+  padding: 8px 10px;
+
+  border-radius: 7px;
+
+  background: #3f1d1d;
+
+  border: 1px solid #7f1d1d;
 
   color: #fca5a5;
 
-  border-color: #7f1d1d;
+  font-size: 11px;
 
-  background: #211416;
+  line-height: 1.4;
+}
 
+.hidden {
+  display: none;
 }
 
 
 /* ============================================================
-   WIFI HIDDEN
-   ============================================================ */
-
-.wifi-control-btn.wifi-hidden {
-
-  color: #86efac;
-
-  border-color: #166534;
-
-  background: #10251a;
-
-}
-
-
-/* ============================================================
-   REFRESH SPEED
-   ============================================================ */
-
-.refresh-speed-btn {
-
-  width: 58px;
-
-  flex-shrink: 0;
-
-}
-
-
-/* ============================================================
-   ACTIVE REFRESH SPEED
-   ============================================================ */
-
-.refresh-speed-btn.active {
-
-  background: #263449;
-
-  border-color: #475569;
-
-  color: #f8fafc;
-
-}
-
-
-/* ============================================================
-   REFRESH BUTTON
-   ============================================================ */
-
-.refresh-btn {
-
-  width: 36px;
-
-  flex-shrink: 0;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  font-size: 17px;
-
-}
-
-
-/* ============================================================
-   CONNECTION STATUS
-   ============================================================ */
-
-.refresh-status {
-
-  width: 100%;
-
-  margin-bottom: 3px;
-
-  color: #64748b;
-
-  font-size: 9px;
-
-  text-align: center;
-
-}
-
-
-/* ============================================================
-   WIFI STATUS
-   ============================================================ */
-
-.wifi-status-row {
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 5px;
-
-  margin-bottom: 2px;
-
-}
-
-
-.wifi-title {
-
-  color: #64748b;
-
-  font-size: 9px;
-
-}
-
-
-.wifi-status {
-
-  color: #94a3b8;
-
-  font-size: 9px;
-
-}
-
-
-/* ============================================================
-   SCROLLBAR
+   SMALL SCROLLBAR
    ============================================================ */
 
 ::-webkit-scrollbar {
-
-  width: 4px;
-
+  width: 5px;
 }
-
 
 ::-webkit-scrollbar-track {
-
-  background: #0f172a;
-
+  background: transparent;
 }
-
 
 ::-webkit-scrollbar-thumb {
-
   background: #334155;
 
-  border-radius: 4px;
-
-}
-
-
-::-webkit-scrollbar-thumb:hover {
-
-  background: #475569;
-
+  border-radius: 10px;
 }
